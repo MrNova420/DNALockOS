@@ -18,7 +18,7 @@ cd "$DIR"
 echo "📦 Checking Python dependencies..."
 python3 -c "import nacl, fastapi, uvicorn" 2>/dev/null || {
     echo "⚠️  Installing Python dependencies..."
-    pip3 install --user -q PyNaCl fastapi uvicorn pydantic cryptography argon2-cffi cbor2 click rich
+    pip3 install --user -r requirements.txt
     echo "✅ Python dependencies installed"
 }
 
