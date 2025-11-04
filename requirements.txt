@@ -51,3 +51,9 @@ isort==5.13.0              # Import sorting
 # Documentation
 mkdocs==1.5.3              # Documentation generator
 mkdocs-material==9.5.3     # Material theme for docs
+
+# Web API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
