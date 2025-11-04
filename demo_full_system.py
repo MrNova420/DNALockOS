@@ -60,9 +60,12 @@ def demo_cryptographic_primitives():
     print("\n4️⃣ Argon2id Password Hashing")
     from server.crypto.hashing import hash_password, verify_password
 
-    password = "SecureP@ssw0rd123"
-    hash_result = hash_password(password)
-    valid = verify_password(hash_result, password)
+    # NOTE: This is a demo example only. Never hardcode passwords in production code.
+    demo_password = "SecureP@ssw0rd123"
+    hash_result = hash_password(demo_password)
+    valid = verify_password(hash_result, demo_password)
+    # Clear sensitive data from memory
+    demo_password = None
 
     print("   ✅ Hashed password with Argon2id")
     print(f"   ✅ Verification: {valid}")

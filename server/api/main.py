@@ -319,4 +319,11 @@ async def admin_cleanup_challenges():
 
 
 if __name__ == "__main__":
-    uvicorn.run("server.api.main:app", host="0.0.0.0", port=8000, reload=True)
+    import os
+
+    # Get configuration from environment variables
+    host = os.getenv("DNAKEY_API_HOST", "0.0.0.0")
+    port = int(os.getenv("DNAKEY_API_PORT", "8000"))
+    reload = os.getenv("DNAKEY_API_RELOAD", "true").lower() == "true"
+
+    uvicorn.run("server.api.main:app", host=host, port=port, reload=reload)
