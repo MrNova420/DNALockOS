@@ -16,7 +16,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 
 class RevocationReason(Enum):
@@ -197,7 +197,7 @@ class RevocationService:
 
         return hasher.hexdigest()
 
-    def get_crl_info(self) -> Dict[str, any]:
+    def get_crl_info(self) -> Dict[str, Any]:
         """
         Get CRL metadata information.
 

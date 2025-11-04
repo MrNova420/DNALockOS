@@ -11,7 +11,7 @@ Ed25519 provides:
 Reference: RFC 8032 - Edwards-Curve Digital Signature Algorithm (EdDSA)
 """
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 import nacl.encoding
 import nacl.exceptions
@@ -25,7 +25,7 @@ class Ed25519SigningKey:
     Wraps PyNaCl's SigningKey with additional validation and helpers.
     """
 
-    def __init__(self, seed: bytes = None):
+    def __init__(self, seed: Optional[bytes] = None):
         """
         Initialize an Ed25519 signing key.
 
@@ -110,7 +110,9 @@ class Ed25519VerifyKey:
     Wraps PyNaCl's VerifyKey with additional validation and helpers.
     """
 
-    def __init__(self, verify_key: nacl.signing.VerifyKey = None, key_bytes: bytes = None):
+    def __init__(
+        self, verify_key: Optional[nacl.signing.VerifyKey] = None, key_bytes: Optional[bytes] = None
+    ):
         """
         Initialize an Ed25519 verification key.
 

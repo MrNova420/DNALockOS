@@ -11,7 +11,7 @@ X25519 provides:
 Reference: RFC 7748 - Elliptic Curves for Security
 """
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 import nacl.encoding
 import nacl.exceptions
@@ -25,7 +25,7 @@ class X25519PrivateKey:
     Wraps PyNaCl's PrivateKey with additional validation and helpers.
     """
 
-    def __init__(self, seed: bytes = None):
+    def __init__(self, seed: Optional[bytes] = None):
         """
         Initialize an X25519 private key.
 
@@ -118,7 +118,7 @@ class X25519PublicKey:
     Wraps PyNaCl's PublicKey with additional validation and helpers.
     """
 
-    def __init__(self, public_key: nacl.public.PublicKey = None, key_bytes: bytes = None):
+    def __init__(self, public_key: Optional[nacl.public.PublicKey] = None, key_bytes: Optional[bytes] = None):
         """
         Initialize an X25519 public key.
 

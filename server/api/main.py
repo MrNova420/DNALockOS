@@ -6,6 +6,7 @@ Admin authentication uses DNA-Key system for master key auth.
 """
 
 import base64
+import os
 from datetime import datetime
 from typing import List, Optional
 
@@ -319,8 +320,6 @@ async def admin_cleanup_challenges():
 
 
 if __name__ == "__main__":
-    import os
-
     # Get configuration from environment variables
     host = os.getenv("DNAKEY_API_HOST", "0.0.0.0")
     port = int(os.getenv("DNAKEY_API_PORT", "8000"))
