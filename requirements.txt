@@ -4,7 +4,7 @@
 
 # Core Cryptographic Libraries (APPROVED - from blueprint)
 PyNaCl==1.5.0              # libsodium bindings (Ed25519, X25519, AES-256-GCM)
-cryptography==41.0.7       # Additional crypto primitives
+cryptography>=43.0.0,<47.0.0  # Additional crypto primitives (43.0.0+ has Python 3.12 wheel support)
 argon2-cffi==23.1.0        # Argon2id password hashing
 
 # Data Serialization
@@ -51,12 +51,6 @@ isort==5.13.0              # Import sorting
 # Documentation
 mkdocs==1.5.3              # Documentation generator
 mkdocs-material==9.5.3     # Material theme for docs
-
-# Web API
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic>=2.5.0
-python-multipart>=0.0.6
 
 # CLI Tools
 click>=8.1.7
