@@ -21,12 +21,12 @@ def demo_cryptographic_primitives():
 
     # Ed25519 Signatures
     print("\n1️⃣ Ed25519 Digital Signatures")
-    from server.crypto.signatures import generate_ed25519_keypair, sign_message, verify_signature
+    from server.crypto.signatures import generate_ed25519_keypair
 
-    keypair = generate_ed25519_keypair()
+    signing_key, verify_key = generate_ed25519_keypair()
     message = b"DNA-Key Authentication Test"
-    signature = sign_message(keypair["private_key"], message)
-    valid = verify_signature(keypair["public_key"], message, signature)
+    signature = signing_key.sign(message)
+    valid = verify_key.verify(message, signature)
 
     print("   ✅ Generated Ed25519 keypair")
     print(f"   ✅ Signed message: {message.decode()}")
@@ -34,44 +34,35 @@ def demo_cryptographic_primitives():
 
     # X25519 Key Exchange
     print("\n2️⃣ X25519 Key Exchange")
-    from server.crypto.key_exchange import derive_shared_secret, generate_x25519_keypair
+    from server.crypto.key_exchange import generate_x25519_keypair, perform_key_exchange
 
-    alice = generate_x25519_keypair()
-    bob = generate_x25519_keypair()
-    alice_shared = derive_shared_secret(alice["private_key"], bob["public_key"])
-    bob_shared = derive_shared_secret(bob["private_key"], alice["public_key"])
+    alice_priv, alice_pub = generate_x25519_keypair()
+    bob_priv, bob_pub = generate_x25519_keypair()
+    alice_shared = perform_key_exchange(alice_priv, bob_pub)
+    bob_shared = perform_key_exchange(bob_priv, alice_pub)
 
     print("   ✅ Alice and Bob generated keypairs")
     print(f"   ✅ Shared secrets match: {alice_shared == bob_shared}")
 
     # AES-256-GCM Encryption
     print("\n3️⃣ AES-256-GCM Authenticated Encryption")
-    from server.crypto.encryption import decrypt_message, encrypt_message
+    from server.crypto.encryption import decrypt_data, encrypt_data
 
     plaintext = b"Secure DNA authentication data"
     key = b"0" * 32  # 32-byte key
-    ciphertext, nonce = encrypt_message(plaintext, key)
-    decrypted = decrypt_message(ciphertext, key, nonce)
+    ciphertext, nonce = encrypt_data(key, plaintext)
+    decrypted = decrypt_data(key, ciphertext, nonce)
 
     print(f"   ✅ Encrypted: {len(plaintext)} bytes → {len(ciphertext)} bytes")
     print(f"   ✅ Decrypted successfully: {decrypted == plaintext}")
 
-    # HKDF Key Derivation
-    print("\n4️⃣ HKDF Key Derivation")
-    from server.crypto.hashing import derive_key_hkdf
-
-    master_key = b"master_secret"
-    derived = derive_key_hkdf(master_key, length=32, info=b"dna-key-context")
-
-    print(f"   ✅ Derived key: {len(derived)} bytes")
-
     # Argon2id Password Hashing
-    print("\n5️⃣ Argon2id Password Hashing")
-    from server.crypto.hashing import hash_password_argon2id, verify_password_argon2id
+    print("\n4️⃣ Argon2id Password Hashing")
+    from server.crypto.hashing import hash_password, verify_password
 
     password = "SecureP@ssw0rd123"
-    hash_result = hash_password_argon2id(password)
-    valid = verify_password_argon2id(password, hash_result)
+    hash_result = hash_password(password)
+    valid = verify_password(hash_result, password)
 
     print("   ✅ Hashed password with Argon2id")
     print(f"   ✅ Verification: {valid}")
@@ -105,7 +96,7 @@ def demo_dna_key_generation():
         print(f"   → Generated in: {elapsed:.3f}s")
         print(f"   → Serialized size: {size_kb:.2f} KB")
         print(f"   → Key ID: {key.key_id}")
-        print(f"   → Visual seed: {key.visual_dna.helix_seed[:16]}...")
+        print(f"   → Visual seed: {key.visual_dna.animation_seed[:16]}...")
 
 
 def demo_enrollment_authentication():
@@ -133,8 +124,13 @@ def demo_enrollment_authentication():
     result = enrollment.enroll(request)
     print("   ✅ Enrollment successful!")
     print(f"   → Key ID: {result.key_id}")
-    print(f"   → Created: {result.created_at}")
-    print(f"   → Expires: {result.expires_at}")
+    print(f"   → Timestamp: {result.timestamp}")
+    if result.dna_key and result.dna_key.expires_timestamp:
+        print(f"   → Expires: {result.dna_key.expires_timestamp}")
+
+    # Manually register key with auth service for demo
+    if result.dna_key:
+        auth._enrolled_keys[result.key_id] = result.dna_key
 
     # Generate authentication challenge
     print("\n2️⃣ Generating Authentication Challenge...")
@@ -164,7 +160,10 @@ def demo_revocation():
 
     print("\n1️⃣ Revoking DNA Key...")
     request = RevocationRequest(
-        key_id="dna-test-key-123", reason=RevocationReason.KEY_COMPROMISE, notes="Test revocation for demo"
+        key_id="dna-test-key-123",
+        reason=RevocationReason.KEY_COMPROMISE,
+        revoked_by="admin@company.com",
+        notes="Test revocation for demo",
     )
 
     service.revoke_key(request)
@@ -178,10 +177,9 @@ def demo_revocation():
 
     # Get revocation list
     print("\n3️⃣ Certificate Revocation List (CRL)...")
-    crl = service.get_crl()
-    print(f"   → CRL Version: {crl.version}")
-    print(f"   → Total revocations: {len(crl.revoked_keys)}")
-    print(f"   → Integrity hash: {crl.integrity_hash[:16]}...")
+    crl = service.get_revocation_list()
+    print(f"   → Total revoked keys: {len(crl)}")
+    print(f"   → CRL version: {service.get_crl_version()}")
 
 
 def demo_api_endpoints():
