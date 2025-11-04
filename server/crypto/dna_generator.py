@@ -360,6 +360,10 @@ class DNAKeyGenerator:
         data += f":{dna_key.dna_helix.checksum}"
         
         return data.encode()
+    
+    def _generate_test_keypair(self):
+        """Generate keypair for testing (not for production use)."""
+        return generate_ed25519_keypair()
 
 
 def generate_dna_key(
