@@ -1,0 +1,53 @@
+# DNA-Key Authentication System - Python Dependencies
+# Version: 1.0
+# Last Updated: 2025-11-04
+
+# Core Cryptographic Libraries (APPROVED - from blueprint)
+PyNaCl==1.5.0              # libsodium bindings (Ed25519, X25519, AES-256-GCM)
+cryptography==41.0.7       # Additional crypto primitives
+argon2-cffi==23.1.0        # Argon2id password hashing
+
+# Data Serialization
+cbor2==5.6.0               # CBOR serialization for DNA keys
+
+# Web Framework (FastAPI - as mentioned in blueprint)
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0            # Data validation
+pydantic-settings==2.1.0   # Settings management
+
+# Database
+psycopg2-binary==2.9.9     # PostgreSQL adapter
+redis==5.0.1               # Redis for caching
+asyncpg==0.29.0            # Async PostgreSQL
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+hypothesis==6.92.1         # Property-based testing
+
+# Security & Monitoring
+python-jose[cryptography]==3.3.0  # JWT handling
+passlib[bcrypt]==1.7.4     # Password hashing utilities
+python-multipart==0.0.6    # Form data parsing
+
+# Utilities
+python-dotenv==1.0.0       # Environment variable management
+python-dateutil==2.8.2     # Date utilities
+pyyaml==6.0.1              # YAML configuration
+
+# Logging & Monitoring
+structlog==23.2.0          # Structured logging
+prometheus-client==0.19.0  # Metrics
+
+# Development Tools
+black==23.12.0             # Code formatting
+flake8==6.1.0              # Linting
+mypy==1.7.1                # Type checking
+isort==5.13.0              # Import sorting
+
+# Documentation
+mkdocs==1.5.3              # Documentation generator
+mkdocs-material==9.5.3     # Material theme for docs
