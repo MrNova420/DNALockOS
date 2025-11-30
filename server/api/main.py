@@ -62,7 +62,7 @@ from typing import List, Optional, Dict, Any
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
@@ -292,6 +292,232 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # ============= Public Endpoints =============
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    """Root endpoint - Landing page with system status."""
+    status_emoji = "🟢" if CORE_SERVICES_AVAILABLE else "🟡"
+    status_text = "OPERATIONAL" if CORE_SERVICES_AVAILABLE else "DEGRADED"
+    status_color = "#00ff00" if CORE_SERVICES_AVAILABLE else "#ffff00"
+    
+    # Get feature availability
+    pynacl_status = is_nacl_available() if CRYPTO_BACKEND_AVAILABLE else False
+    zmq_status = is_zmq_available() if MESSAGING_AVAILABLE else False
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>DNALockOS - DNA-Key Authentication System</title>
+        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+        <style>
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{
+                min-height: 100vh;
+                background: linear-gradient(135deg, #000000 0%, #0a0a2e 50%, #000000 100%);
+                color: #00ffff;
+                font-family: 'Orbitron', monospace;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+                overflow-x: hidden;
+            }}
+            .container {{
+                max-width: 800px;
+                width: 100%;
+                text-align: center;
+            }}
+            .logo {{
+                font-size: 80px;
+                margin-bottom: 10px;
+                animation: pulse 2s ease-in-out infinite;
+            }}
+            @keyframes pulse {{
+                0%, 100% {{ transform: scale(1); opacity: 1; }}
+                50% {{ transform: scale(1.1); opacity: 0.8; }}
+            }}
+            h1 {{
+                font-size: 48px;
+                font-weight: 900;
+                text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff;
+                letter-spacing: 5px;
+                margin-bottom: 10px;
+            }}
+            .tagline {{
+                font-size: 18px;
+                color: #ff00ff;
+                letter-spacing: 8px;
+                text-shadow: 0 0 10px #ff00ff;
+                margin-bottom: 5px;
+            }}
+            .version {{
+                font-size: 12px;
+                color: #666;
+                letter-spacing: 2px;
+                margin-bottom: 40px;
+            }}
+            .status-box {{
+                background: rgba(0, 0, 0, 0.8);
+                border: 3px solid #00ffff;
+                border-radius: 15px;
+                padding: 30px;
+                margin-bottom: 30px;
+                box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
+            }}
+            .status {{
+                font-size: 36px;
+                color: {status_color};
+                text-shadow: 0 0 20px {status_color};
+                margin-bottom: 20px;
+            }}
+            .services {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+                margin-top: 20px;
+            }}
+            .service {{
+                background: rgba(0, 255, 255, 0.1);
+                border: 2px solid #00ffff;
+                border-radius: 10px;
+                padding: 15px;
+                text-align: center;
+            }}
+            .service-name {{
+                font-size: 12px;
+                color: #888;
+                margin-bottom: 5px;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }}
+            .service-status {{
+                font-size: 18px;
+            }}
+            .service-status.online {{ color: #00ff00; }}
+            .service-status.offline {{ color: #ff0000; }}
+            .links {{
+                display: flex;
+                gap: 20px;
+                justify-content: center;
+                flex-wrap: wrap;
+                margin-top: 30px;
+            }}
+            .link {{
+                display: inline-block;
+                padding: 15px 30px;
+                background: linear-gradient(90deg, rgba(0, 255, 255, 0.2) 0%, rgba(0, 255, 255, 0.1) 100%);
+                border: 2px solid #00ffff;
+                border-radius: 10px;
+                color: #00ffff;
+                text-decoration: none;
+                font-weight: bold;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                transition: all 0.3s;
+            }}
+            .link:hover {{
+                background: linear-gradient(90deg, #00ffff 0%, #00cccc 100%);
+                color: #000;
+                box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+                transform: translateY(-2px);
+            }}
+            .footer {{
+                margin-top: 40px;
+                font-size: 12px;
+                color: #666;
+            }}
+            .grid-bg {{
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: 
+                    linear-gradient(#00ffff 1px, transparent 1px),
+                    linear-gradient(90deg, #00ffff 1px, transparent 1px);
+                background-size: 50px 50px;
+                opacity: 0.05;
+                z-index: -1;
+                animation: gridScroll 20s linear infinite;
+            }}
+            @keyframes gridScroll {{
+                0% {{ transform: translateY(0); }}
+                100% {{ transform: translateY(50px); }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="grid-bg"></div>
+        <div class="container">
+            <div class="logo">🔷</div>
+            <h1>DNA-KEY</h1>
+            <div class="tagline">AUTHENTICATION SYSTEM</div>
+            <div class="version">v1.0.0 | TRON PROTOCOL</div>
+            
+            <div class="status-box">
+                <div class="status">{status_emoji} {status_text}</div>
+                <p>All core services are running</p>
+                
+                <div class="services">
+                    <div class="service">
+                        <div class="service-name">Enrollment</div>
+                        <div class="service-status {'online' if enrollment_service else 'offline'}">
+                            {'🟢 ONLINE' if enrollment_service else '🔴 OFFLINE'}
+                        </div>
+                    </div>
+                    <div class="service">
+                        <div class="service-name">Authentication</div>
+                        <div class="service-status {'online' if auth_service else 'offline'}">
+                            {'🟢 ONLINE' if auth_service else '🔴 OFFLINE'}
+                        </div>
+                    </div>
+                    <div class="service">
+                        <div class="service-name">Revocation</div>
+                        <div class="service-status {'online' if revocation_service else 'offline'}">
+                            {'🟢 ONLINE' if revocation_service else '🔴 OFFLINE'}
+                        </div>
+                    </div>
+                    <div class="service">
+                        <div class="service-name">Crypto Backend</div>
+                        <div class="service-status {'online' if pynacl_status else 'offline'}">
+                            {'🟢 PyNaCl' if pynacl_status else '🟡 Fallback'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="links">
+                <a href="/api/docs" class="link">📚 API Docs</a>
+                <a href="/api/redoc" class="link">📖 ReDoc</a>
+                <a href="/health" class="link">💓 Health</a>
+                <a href="/api/v1/status" class="link">📊 Status</a>
+            </div>
+            
+            <div class="footer">
+                <p>🔷 Powered by DNALockOS - DNA-Key Authentication System 🔷</p>
+                <p>Copyright © 2025 WeNova Interactive</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content, status_code=200)
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Return a simple favicon."""
+    # Return a simple 1x1 transparent PNG as favicon placeholder
+    # This prevents 404 errors in browser console
+    favicon_data = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    )
+    return Response(content=favicon_data, media_type="image/png")
 
 
 @app.get("/health")
