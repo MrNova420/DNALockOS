@@ -148,7 +148,7 @@ export default function Home() {
         </div>
         <div style={styles.tagline}>
           <span style={styles.taglineText}>AUTHENTICATION SYSTEM</span>
-          <div style={styles.version}>v1.0 | TRON PROTOCOL</div>
+          <div style={styles.version}>v1.0 | DNA PROTOCOL</div>
         </div>
       </div>
 
