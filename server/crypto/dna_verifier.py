@@ -118,6 +118,12 @@ class DNAVerifier:
     12. Cross-Reference Check
     """
     
+    # Supported format versions for version check barrier
+    SUPPORTED_VERSIONS = ["1.0", "2.0"]
+    
+    # Expected Ed25519 signature length in bytes
+    EXPECTED_SIGNATURE_LENGTH = 64
+    
     # Minimum entropy bits per byte (4.5+ is good for hashed/encrypted data)
     MIN_ENTROPY_THRESHOLD = 4.5
     
@@ -141,7 +147,10 @@ class DNAVerifier:
                         warnings are allowed.
         """
         self.strict_mode = strict_mode
-        self._revocation_list: set = set()  # In production, this would be a database
+        # In-memory revocation list. 
+        # TODO: Implement persistent storage backend (e.g., Redis, PostgreSQL)
+        # Expected interface: add(key_id), remove(key_id), contains(key_id)
+        self._revocation_list: set = set()
     
     def verify(self, dna_key: DNAKey) -> VerificationReport:
         """
@@ -262,9 +271,7 @@ class DNAVerifier:
         import time
         start = time.time()
         
-        supported_versions = ["1.0", "2.0"]
-        
-        if dna_key.format_version not in supported_versions:
+        if dna_key.format_version not in self.SUPPORTED_VERSIONS:
             return VerificationBarrier(
                 barrier_number=2,
                 name="Version Check",
@@ -359,7 +366,7 @@ class DNAVerifier:
         
         # In production, verify signature against public key
         # For now, check signature exists and has valid length
-        if len(dna_key.issuer.issuer_signature) != 64:
+        if len(dna_key.issuer.issuer_signature) != self.EXPECTED_SIGNATURE_LENGTH:
             return VerificationBarrier(
                 barrier_number=4,
                 name="Issuer Verification",

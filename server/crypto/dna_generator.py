@@ -45,7 +45,8 @@ from server.crypto.dna_key import (
 from server.crypto.signatures import generate_ed25519_keypair
 
 
-# Extended character set for DNA strand lines
+# Character set for DNA strand visual representation (future use)
+# Will be used for generating human-readable DNA strand representations
 DNA_ALPHABET = string.ascii_letters + string.digits + "!@#$%^&*()-_=+[]{}|;:,.<>?/~`"
 
 

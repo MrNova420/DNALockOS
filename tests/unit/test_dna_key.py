@@ -191,7 +191,7 @@ class TestDNAKey:
         """Test creating a DNA key."""
         key = DNAKey()
         
-        assert key.format_version == "2.0"  # Updated to v2.0
+        assert key.format_version == "2.0"
         assert key.key_id is not None
         assert key.created_timestamp is not None
         assert isinstance(key.dna_helix, DNAHelix)
