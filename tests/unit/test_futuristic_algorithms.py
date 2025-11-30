@@ -180,7 +180,7 @@ class TestSchnorrZKP:
         assert isinstance(proof, ZKProof)
         assert len(proof.commitment) > 0
         assert len(proof.challenge) == 32
-        assert len(proof.response) == 32
+        assert len(proof.response) == 64  # 32 bytes response + 32 bytes nonce
     
     def test_proof_verification_succeeds(self):
         """Test that valid proofs verify."""
