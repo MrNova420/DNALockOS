@@ -124,6 +124,16 @@ class SignerBackend(ABC):
         """
         pass
 
+    @abstractmethod
+    def to_bytes(self) -> bytes:
+        """
+        Export the private key as raw bytes.
+
+        Returns:
+            The private key as bytes (32 bytes for Ed25519).
+        """
+        pass
+
     @property
     @abstractmethod
     def backend_name(self) -> str:
@@ -299,23 +309,26 @@ class DisabledSigner(SignerBackend):
         """
         Initialize disabled signer.
 
-        Raises:
-            RuntimeError: Always raises to indicate no backend is available.
+        Note: Does not raise on init, but all operations will raise RuntimeError.
         """
-        raise RuntimeError(
+        self._error_message = (
             "No secure signing backend available. "
             "Please install PyNaCl (pip install PyNaCl) or "
             "cryptography (pip install cryptography) to enable signing."
         )
 
     def sign(self, data: bytes) -> bytes:
-        raise RuntimeError("Signing backend not available")
+        raise RuntimeError(self._error_message)
 
     def verify(self, data: bytes, signature: bytes) -> bool:
-        raise RuntimeError("Verification backend not available")
+        raise RuntimeError(self._error_message)
 
     def get_public_key(self) -> bytes:
-        raise RuntimeError("Public key not available")
+        raise RuntimeError(self._error_message)
+
+    def to_bytes(self) -> bytes:
+        """Export the private key - not available for disabled signer."""
+        raise RuntimeError(self._error_message)
 
     @property
     def backend_name(self) -> str:
@@ -327,16 +340,14 @@ def get_signer_backend(private_key: Optional[bytes] = None) -> SignerBackend:
     Get the best available signing backend.
 
     Attempts to use PyNaCl first, falls back to cryptography library,
-    and raises an error if neither is available.
+    and returns a disabled signer if neither is available.
 
     Args:
         private_key: Optional 32-byte private key seed.
 
     Returns:
-        A SignerBackend instance.
-
-    Raises:
-        RuntimeError: If no signing backend is available.
+        A SignerBackend instance. If no backend is available, returns
+        a DisabledSigner that will raise RuntimeError when used.
 
     Example:
         >>> signer = get_signer_backend()
@@ -357,7 +368,13 @@ def get_signer_backend(private_key: Optional[bytes] = None) -> SignerBackend:
         )
         return CryptographySigner(private_key)
 
-    # No backend available
+    # No backend available - return disabled signer that will error on use
+    warnings.warn(
+        "No crypto backend available. Signing operations will fail. "
+        "Install PyNaCl or cryptography to enable signing.",
+        UserWarning,
+        stacklevel=2,
+    )
     return DisabledSigner(private_key)
 
 
