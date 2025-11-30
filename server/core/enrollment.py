@@ -1,4 +1,54 @@
 """
+==============================================================================
+DNALockOS - DNA-Key Authentication System
+Copyright (c) 2025 WeNova Interactive
+==============================================================================
+
+OWNERSHIP AND LEGAL NOTICE:
+
+This software and all associated intellectual property is the exclusive
+property of WeNova Interactive, legally owned and operated by:
+
+    Kayden Shawn Massengill
+
+COMMERCIAL SOFTWARE - NOT FREE - NOT OPEN SOURCE
+
+This is proprietary commercial software. It is NOT free software. It is NOT
+open source software. This software is developed for commercial sale and
+requires a valid commercial license for ANY use.
+
+STRICT PROHIBITION NOTICE:
+
+Without a valid commercial license agreement, you are PROHIBITED from:
+  * Using this software for any purpose
+  * Copying, reproducing, or duplicating this software
+  * Modifying, adapting, or creating derivative works
+  * Distributing, publishing, or transferring this software
+  * Reverse engineering, decompiling, or disassembling this software
+  * Sublicensing or permitting any third-party access
+
+LEGAL ENFORCEMENT:
+
+Unauthorized use, reproduction, or distribution of this software, or any
+portion thereof, may result in severe civil and criminal penalties, and
+will be prosecuted to the maximum extent possible under applicable law.
+
+For licensing inquiries: WeNova Interactive
+==============================================================================
+"""
+
+"""
+DNALockOS - DNA-Key Authentication System
+Copyright (c) 2025 WeNova Interactive
+Legal Owner: Kayden Shawn Massengill
+ALL RIGHTS RESERVED.
+
+PROPRIETARY AND CONFIDENTIAL
+This is commercial software. Unauthorized copying, modification,
+distribution, or use is strictly prohibited.
+"""
+
+"""
 DNA-Key Authentication System - Enrollment Service
 
 Implements the enrollment service for registering new DNA keys.
@@ -44,6 +94,7 @@ class EnrollmentResponse:
     dna_key: Optional[DNAKey] = None
     key_id: Optional[str] = None
     serialized_key: Optional[bytes] = None
+    signing_key_hex: Optional[str] = None  # User's private key for signing challenges
     error_message: Optional[str] = None
     timestamp: Optional[datetime] = None
 
@@ -96,9 +147,9 @@ class EnrollmentService:
             # Validate request
             self._validate_request(request)
 
-            # Generate DNA key
+            # Generate DNA key WITH signing key (for user authentication)
             generator = DNAKeyGenerator(request.security_level)
-            dna_key = generator.generate(
+            key_with_signing = generator.generate_with_signing_key(
                 subject_id=request.subject_id,
                 subject_type=request.subject_type,
                 policy_id=request.policy_id,
@@ -108,6 +159,8 @@ class EnrollmentService:
                 biometric_required=request.biometric_required,
                 device_binding_required=request.device_binding_required,
             )
+            
+            dna_key = key_with_signing.dna_key
 
             # Validate generated key
             if not dna_key.is_valid():
@@ -116,12 +169,13 @@ class EnrollmentService:
             # Serialize key
             serialized = serialize_dna_key(dna_key)
 
-            # Create successful response
+            # Create successful response with signing key
             return EnrollmentResponse(
                 success=True,
                 dna_key=dna_key,
                 key_id=dna_key.key_id,
                 serialized_key=serialized,
+                signing_key_hex=key_with_signing.signing_key_hex,  # User needs this to authenticate!
                 timestamp=datetime.now(timezone.utc),
             )
 

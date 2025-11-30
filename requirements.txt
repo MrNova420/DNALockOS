@@ -1,6 +1,8 @@
 # DNA-Key Authentication System - Python Dependencies
-# Version: 1.0
-# Last Updated: 2025-11-04
+# Copyright (c) 2025 WeNova Interactive - Kayden Shawn Massengill
+# ALL RIGHTS RESERVED - PROPRIETARY COMMERCIAL SOFTWARE
+# Version: 1.0.0
+# Last Updated: 2025-11-30
 
 # Core Cryptographic Libraries (APPROVED - from blueprint)
 PyNaCl==1.5.0              # libsodium bindings (Ed25519, X25519, AES-256-GCM)
@@ -16,10 +18,11 @@ uvicorn[standard]==0.24.0
 pydantic==2.5.0            # Data validation
 pydantic-settings==2.1.0   # Settings management
 
-# Database
-psycopg2-binary==2.9.9     # PostgreSQL adapter
-redis==5.0.1               # Redis for caching
-asyncpg==0.29.0            # Async PostgreSQL
+# Database (Optional - not required for core functionality)
+# psycopg2-binary==2.9.9   # PostgreSQL adapter - OPTIONAL: requires pg_config
+# asyncpg==0.29.0          # Async PostgreSQL - OPTIONAL
+redis==5.0.1               # Redis for caching (optional for production)
+aiosqlite==0.19.0          # SQLite async - lightweight fallback
 
 # Testing
 pytest==7.4.3

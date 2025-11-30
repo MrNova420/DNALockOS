@@ -1,4 +1,54 @@
 """
+==============================================================================
+DNALockOS - DNA-Key Authentication System
+Copyright (c) 2025 WeNova Interactive
+==============================================================================
+
+OWNERSHIP AND LEGAL NOTICE:
+
+This software and all associated intellectual property is the exclusive
+property of WeNova Interactive, legally owned and operated by:
+
+    Kayden Shawn Massengill
+
+COMMERCIAL SOFTWARE - NOT FREE - NOT OPEN SOURCE
+
+This is proprietary commercial software. It is NOT free software. It is NOT
+open source software. This software is developed for commercial sale and
+requires a valid commercial license for ANY use.
+
+STRICT PROHIBITION NOTICE:
+
+Without a valid commercial license agreement, you are PROHIBITED from:
+  * Using this software for any purpose
+  * Copying, reproducing, or duplicating this software
+  * Modifying, adapting, or creating derivative works
+  * Distributing, publishing, or transferring this software
+  * Reverse engineering, decompiling, or disassembling this software
+  * Sublicensing or permitting any third-party access
+
+LEGAL ENFORCEMENT:
+
+Unauthorized use, reproduction, or distribution of this software, or any
+portion thereof, may result in severe civil and criminal penalties, and
+will be prosecuted to the maximum extent possible under applicable law.
+
+For licensing inquiries: WeNova Interactive
+==============================================================================
+"""
+
+"""
+DNALockOS - DNA-Key Authentication System
+Copyright (c) 2025 WeNova Interactive
+Legal Owner: Kayden Shawn Massengill
+ALL RIGHTS RESERVED.
+
+PROPRIETARY AND CONFIDENTIAL
+This is commercial software. Unauthorized copying, modification,
+distribution, or use is strictly prohibited.
+"""
+
+"""
 DNA-Key Authentication System - DNA Key Data Models
 
 Implements the core DNA Key data structure with segments representing
@@ -527,3 +577,42 @@ class DNAKey:
         
         self.security_score = min(100.0, score)
         return self.security_score
+
+
+@dataclass
+class DNAKeyWithSigningKey:
+    """
+    Container for a DNA Key along with its signing key.
+    
+    This is returned during enrollment so users can:
+    1. Store the signing_key_hex securely (this is their private key)
+    2. Use the signing key to sign authentication challenges
+    3. The DNA key contains only the public key
+    
+    IMPORTANT: The signing_key_hex must be stored securely by the user.
+    It is only provided once during enrollment and cannot be recovered.
+    """
+    dna_key: DNAKey
+    signing_key_hex: str  # Hex-encoded Ed25519 signing key (private key)
+    
+    @property
+    def key_id(self) -> str:
+        """Get the key ID."""
+        return self.dna_key.key_id
+    
+    def sign_challenge(self, challenge_hex: str) -> str:
+        """
+        Sign a challenge using the signing key.
+        
+        Args:
+            challenge_hex: The challenge as a hex string
+            
+        Returns:
+            The signature as a hex string
+        """
+        from nacl.signing import SigningKey
+        
+        signing_key = SigningKey(bytes.fromhex(self.signing_key_hex))
+        challenge_bytes = bytes.fromhex(challenge_hex)
+        signature = signing_key.sign(challenge_bytes).signature
+        return signature.hex()

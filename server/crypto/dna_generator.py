@@ -1,4 +1,54 @@
 """
+==============================================================================
+DNALockOS - DNA-Key Authentication System
+Copyright (c) 2025 WeNova Interactive
+==============================================================================
+
+OWNERSHIP AND LEGAL NOTICE:
+
+This software and all associated intellectual property is the exclusive
+property of WeNova Interactive, legally owned and operated by:
+
+    Kayden Shawn Massengill
+
+COMMERCIAL SOFTWARE - NOT FREE - NOT OPEN SOURCE
+
+This is proprietary commercial software. It is NOT free software. It is NOT
+open source software. This software is developed for commercial sale and
+requires a valid commercial license for ANY use.
+
+STRICT PROHIBITION NOTICE:
+
+Without a valid commercial license agreement, you are PROHIBITED from:
+  * Using this software for any purpose
+  * Copying, reproducing, or duplicating this software
+  * Modifying, adapting, or creating derivative works
+  * Distributing, publishing, or transferring this software
+  * Reverse engineering, decompiling, or disassembling this software
+  * Sublicensing or permitting any third-party access
+
+LEGAL ENFORCEMENT:
+
+Unauthorized use, reproduction, or distribution of this software, or any
+portion thereof, may result in severe civil and criminal penalties, and
+will be prosecuted to the maximum extent possible under applicable law.
+
+For licensing inquiries: WeNova Interactive
+==============================================================================
+"""
+
+"""
+DNALockOS - DNA-Key Authentication System
+Copyright (c) 2025 WeNova Interactive
+Legal Owner: Kayden Shawn Massengill
+ALL RIGHTS RESERVED.
+
+PROPRIETARY AND CONFIDENTIAL
+This is commercial software. Unauthorized copying, modification,
+distribution, or use is strictly prohibited.
+"""
+
+"""
 DNA-Key Authentication System - DNA Key Generation
 
 Implements the DNA key generation algorithm that creates thousands
@@ -25,12 +75,13 @@ import hashlib
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 from server.crypto.dna_key import (
     CryptographicMaterial,
     DNAHelix,
     DNAKey,
+    DNAKeyWithSigningKey,
     DNASegment,
     IssuerInfo,
     LayerChecksum,
@@ -212,6 +263,112 @@ class DNAKeyGenerator:
         dna_key.calculate_security_score()
 
         return dna_key
+    
+    def generate_with_signing_key(
+        self,
+        subject_id: str,
+        subject_type: str = "human",
+        policy_id: str = "default-policy-v1",
+        validity_days: int = 365,
+        issuer_org: str = "DNAKeyAuthSystem",
+        **kwargs,
+    ) -> DNAKeyWithSigningKey:
+        """
+        Generate a DNA key AND return the signing key for user authentication.
+        
+        This method should be used for enrollment as it returns the signing key
+        that users need to authenticate. The signing key is the user's private
+        key and must be stored securely by the user.
+        
+        Args:
+            subject_id: Unique identifier for the subject
+            subject_type: Type of subject (human, device, service)
+            policy_id: Policy ID to bind
+            validity_days: Number of days until expiration
+            issuer_org: Issuing organization ID
+            **kwargs: Additional parameters
+            
+        Returns:
+            DNAKeyWithSigningKey containing both the DNA key and signing key
+        """
+        # Generate Ed25519 key pair
+        signing_key, verify_key = generate_ed25519_keypair()
+        
+        # Store the signing key bytes before using it
+        signing_key_hex = signing_key.to_bytes().hex()
+        
+        # Create timestamps
+        created = datetime.now(timezone.utc)
+        expires = created + timedelta(days=validity_days)
+
+        # Generate DNA segments
+        segments = self._generate_segments(subject_id=subject_id, signing_key=signing_key)
+
+        # Create helix and compute checksum
+        helix = DNAHelix(segments=segments)
+        helix.compute_checksum()
+
+        # Create issuer info
+        issuer_key, issuer_verify_key = generate_ed25519_keypair()
+        issuer = IssuerInfo(organization_id=issuer_org, issuer_public_key=issuer_verify_key.to_bytes())
+
+        # Create subject info
+        attributes_hash = hashlib.sha3_512(f"{subject_id}:{subject_type}".encode()).hexdigest()
+
+        subject = SubjectInfo(
+            subject_id=hashlib.sha3_512(subject_id.encode()).hexdigest(),
+            subject_type=subject_type,
+            attributes_hash=attributes_hash,
+        )
+
+        # Create cryptographic material (only public key is stored in DNA key)
+        crypto_material = CryptographicMaterial(
+            algorithm="Ed25519", public_key=verify_key.to_bytes(), salt=secrets.token_bytes(32)
+        )
+
+        # Create policy binding
+        policy = PolicyBinding(
+            policy_id=policy_id,
+            policy_version="1.0",
+            policy_hash=hashlib.sha3_512(policy_id.encode()).hexdigest(),
+            mfa_required=kwargs.get("mfa_required", False),
+            biometric_required=kwargs.get("biometric_required", False),
+            device_binding_required=kwargs.get("device_binding_required", False),
+        )
+
+        # Create visual DNA
+        visual = VisualDNA()
+
+        # Assemble DNA key
+        dna_key = DNAKey(
+            created_timestamp=created,
+            expires_timestamp=expires,
+            issuer=issuer,
+            subject=subject,
+            dna_helix=helix,
+            cryptographic_material=crypto_material,
+            policy_binding=policy,
+            visual_dna=visual,
+        )
+
+        # Sign the DNA key with issuer key
+        key_data = self._serialize_for_signing(dna_key)
+        issuer.issuer_signature = issuer_key.sign(key_data)
+        
+        # Compute layer checksums
+        layer_checksums = self._compute_layer_checksums(segments)
+        dna_key.layer_checksums = layer_checksums
+        
+        # Calculate total lines
+        dna_key.total_lines = self._calculate_total_lines(segments)
+        
+        # Calculate security score
+        dna_key.calculate_security_score()
+
+        return DNAKeyWithSigningKey(
+            dna_key=dna_key,
+            signing_key_hex=signing_key_hex
+        )
     
     def _compute_layer_checksums(self, segments: List[DNASegment]) -> List[LayerChecksum]:
         """
