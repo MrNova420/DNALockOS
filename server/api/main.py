@@ -303,7 +303,6 @@ async def root():
     
     # Get feature availability
     pynacl_status = is_nacl_available() if CRYPTO_BACKEND_AVAILABLE else False
-    zmq_status = is_zmq_available() if MESSAGING_AVAILABLE else False
     
     html_content = f"""
     <!DOCTYPE html>
