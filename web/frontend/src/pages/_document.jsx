@@ -46,7 +46,7 @@
  * distribution, or use is strictly prohibited.
  */
 
-// DNA-inspired global styles
+// Tron-inspired global styles
 import { Html, Head, Main, NextScript } from 'next/document';
 
 export default function Document() {
