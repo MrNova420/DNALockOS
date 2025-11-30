@@ -253,11 +253,18 @@ class TestHealthMonitor:
         monitor = HealthMonitor()
         initial_count = len(monitor.checkers)
         
-        # Create a custom checker
+        # Create a custom checker that properly implements the HealthChecker interface.
+        # Custom checkers must override the check() method to return a HealthCheck object.
+        # The parent class execute() method handles timing and error tracking.
         class CustomChecker(HealthChecker):
             def __init__(self):
                 super().__init__(ComponentType.QUEUE)
-            def check(self):
+            
+            def check(self) -> HealthCheck:
+                """
+                Perform the actual health check for this component.
+                This method is called by the parent execute() method.
+                """
                 return HealthCheck(
                     component=self.component,
                     status=HealthStatus.HEALTHY,

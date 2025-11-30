@@ -46,6 +46,16 @@ class TestDatabaseConfig:
         assert config.database == "dnalock"
         assert config.ssl_mode == "require"
         assert config.connection_pool_size == 20
+        assert config.password is None  # None by default, must be set via env var
+    
+    def test_validate_missing_password(self):
+        config = DatabaseConfig()
+        with pytest.raises(ValueError, match="Database password must be set"):
+            config.validate()
+    
+    def test_validate_with_password(self):
+        config = DatabaseConfig(password="secret")
+        config.validate()  # Should not raise
 
 
 class TestRedisConfig:
@@ -57,6 +67,7 @@ class TestRedisConfig:
         assert config.port == 6379
         assert config.ssl is True
         assert config.connection_pool_size == 50
+        assert config.password is None  # None by default
 
 
 class TestSecurityConfig:
@@ -120,6 +131,20 @@ class TestHSMConfig:
         assert config.provider == "pkcs11"
         assert config.key_rotation_days == 365
         assert config.backup_enabled is True
+        assert config.pin is None  # None by default
+    
+    def test_validate_missing_pin_when_enabled(self):
+        config = HSMConfig(enabled=True)
+        with pytest.raises(ValueError, match="HSM PIN must be set"):
+            config.validate()
+    
+    def test_validate_disabled_hsm_no_pin_required(self):
+        config = HSMConfig(enabled=False)
+        config.validate()  # Should not raise when HSM is disabled
+    
+    def test_validate_with_pin(self):
+        config = HSMConfig(enabled=True, pin="1234")
+        config.validate()  # Should not raise
 
 
 class TestProductionConfig:

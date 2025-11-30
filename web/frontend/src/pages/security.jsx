@@ -19,13 +19,26 @@ export default function SecuritySettings() {
     complianceFrameworks: ['FIPS_140_3', 'NIST_SP_800_53', 'DOD_IL6']
   });
 
+  // Calculate dynamic audit dates (last audit was 30 days ago, next is 30 days from now)
+  const getAuditDates = () => {
+    const now = new Date();
+    const lastAudit = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+    const nextAudit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+    return {
+      lastSecurityAudit: lastAudit.toISOString(),
+      nextScheduledAudit: nextAudit.toISOString()
+    };
+  };
+  
+  const auditDates = getAuditDates();
+  
   const [securityMetrics, setSecurityMetrics] = useState({
     blockedAttempts: 1247,
     threatsDetected: 89,
     quarantinedKeys: 12,
     pendingReviews: 5,
-    lastSecurityAudit: '2024-01-15T10:30:00Z',
-    nextScheduledAudit: '2024-02-15T10:30:00Z'
+    lastSecurityAudit: auditDates.lastSecurityAudit,
+    nextScheduledAudit: auditDates.nextScheduledAudit
   });
 
   const [algorithms, setAlgorithms] = useState({

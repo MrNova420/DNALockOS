@@ -1,12 +1,16 @@
 """
 DNALockOS - Health Monitoring System
 Real-time system health monitoring and diagnostics
+
+NOTE: This module provides health checking infrastructure for the DNALockOS system.
+In development/testing, simulated health checks are used. For production deployment,
+replace the simulated checks with actual database, cache, and service connections.
 """
 
 import time
 import hashlib
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
@@ -43,7 +47,7 @@ class HealthCheck:
     status: HealthStatus
     message: str
     latency_ms: float
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     details: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
@@ -65,7 +69,7 @@ class SystemHealth:
     version: str
     environment: str
     checks: List[HealthCheck]
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -152,7 +156,15 @@ class HealthChecker:
 
 
 class DatabaseHealthChecker(HealthChecker):
-    """Database health checker"""
+    """
+    Database health checker.
+    
+    NOTE: This implementation uses simulated health checks for development/testing.
+    For production, replace with actual database connection testing:
+    - Execute a simple query (e.g., SELECT 1)
+    - Check connection pool status
+    - Verify replication lag
+    """
     
     def __init__(self):
         super().__init__(ComponentType.DATABASE)
@@ -160,8 +172,16 @@ class DatabaseHealthChecker(HealthChecker):
     def check(self) -> HealthCheck:
         start_time = time.time()
         
-        # Simulated database check
-        # In production, this would actually connect to the database
+        # Simulated database check - replace with actual DB query in production
+        # Example production code:
+        # try:
+        #     connection = get_db_connection()
+        #     connection.execute("SELECT 1")
+        #     latency = (time.time() - start_time) * 1000
+        #     return HealthCheck(...)
+        # except Exception as e:
+        #     return HealthCheck(status=HealthStatus.CRITICAL, ...)
+        
         latency = (time.time() - start_time) * 1000 + 5  # Simulated latency
         
         return HealthCheck(
@@ -173,7 +193,8 @@ class DatabaseHealthChecker(HealthChecker):
                 "pool_size": 20,
                 "active_connections": 5,
                 "available_connections": 15,
-                "replication_lag_ms": 0
+                "replication_lag_ms": 0,
+                "note": "Simulated health check - replace with actual DB connection in production"
             }
         )
 
@@ -288,7 +309,7 @@ class ThreatIntelHealthChecker(HealthChecker):
             latency_ms=latency,
             details={
                 "indicators_loaded": 125847,
-                "last_update": datetime.utcnow().isoformat(),
+                "last_update": datetime.now(timezone.utc).isoformat(),
                 "active_threats": 3,
                 "blocked_ips": 1247
             }
@@ -491,7 +512,7 @@ class HealthMonitor:
         return {
             "alive": True,
             "uptime_seconds": self.get_uptime(),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 

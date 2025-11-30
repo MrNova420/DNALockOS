@@ -35,7 +35,7 @@ class DatabaseConfig:
     port: int = 5432
     database: str = "dnalock"
     username: str = "dnalock"
-    password: str = ""  # Must be set via environment variable
+    password: Optional[str] = None  # Must be set via environment variable
     ssl_mode: str = "require"
     connection_pool_size: int = 20
     max_overflow: int = 10
@@ -46,6 +46,11 @@ class DatabaseConfig:
     read_replicas: list = field(default_factory=list)
     failover_timeout: int = 30
     health_check_interval: int = 10
+    
+    def validate(self) -> None:
+        """Validate that required configuration is present"""
+        if self.password is None:
+            raise ValueError("Database password must be set via DB_PASSWORD environment variable")
 
 
 @dataclass
@@ -53,7 +58,7 @@ class RedisConfig:
     """Redis cache configuration"""
     host: str = "localhost"
     port: int = 6379
-    password: str = ""
+    password: Optional[str] = None  # Should be set via environment variable for production
     database: int = 0
     ssl: bool = True
     connection_pool_size: int = 50
@@ -186,12 +191,17 @@ class HSMConfig:
     provider: str = "pkcs11"
     library_path: str = "/usr/lib/softhsm/libsofthsm2.so"
     slot: int = 0
-    pin: str = ""  # Must be set via environment variable
+    pin: Optional[str] = None  # Must be set via environment variable
     
     # Key management
     master_key_label: str = "dnalock-master"
     key_rotation_days: int = 365
     backup_enabled: bool = True
+    
+    def validate(self) -> None:
+        """Validate that required configuration is present"""
+        if self.enabled and self.pin is None:
+            raise ValueError("HSM PIN must be set via HSM_PIN environment variable when HSM is enabled")
 
 
 @dataclass

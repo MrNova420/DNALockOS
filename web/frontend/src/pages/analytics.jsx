@@ -283,39 +283,42 @@ export default function Analytics() {
       <div style={styles.performanceSection}>
         <h2 style={styles.sectionTitle}>⚡ PERFORMANCE METRICS</h2>
         <div style={styles.performanceGrid}>
+          {/* Latency bars use 200ms as max scale for meaningful visualization */}
           <div style={styles.performanceCard}>
             <div style={styles.perfLabel}>API Latency (p50)</div>
             <div style={styles.perfValue}>23ms</div>
             <div style={styles.perfBar}>
-              <div style={{...styles.perfFill, width: '23%', background: '#00ff00'}}></div>
+              <div style={{...styles.perfFill, width: `${(23/200)*100}%`, background: '#00ff00'}}></div>
             </div>
           </div>
           <div style={styles.performanceCard}>
             <div style={styles.perfLabel}>API Latency (p95)</div>
             <div style={styles.perfValue}>67ms</div>
             <div style={styles.perfBar}>
-              <div style={{...styles.perfFill, width: '67%', background: '#ffff00'}}></div>
+              <div style={{...styles.perfFill, width: `${(67/200)*100}%`, background: '#ffff00'}}></div>
             </div>
           </div>
           <div style={styles.performanceCard}>
             <div style={styles.perfLabel}>API Latency (p99)</div>
             <div style={styles.perfValue}>124ms</div>
             <div style={styles.perfBar}>
-              <div style={{...styles.perfFill, width: '100%', background: '#ffaa00'}}></div>
+              <div style={{...styles.perfFill, width: `${(124/200)*100}%`, background: '#ffaa00'}}></div>
             </div>
           </div>
           <div style={styles.performanceCard}>
             <div style={styles.perfLabel}>Throughput</div>
             <div style={styles.perfValue}>12,847 req/s</div>
             <div style={styles.perfBar}>
-              <div style={{...styles.perfFill, width: '85%', background: '#00ffff'}}></div>
+              {/* 15,000 req/s as max capacity */}
+              <div style={{...styles.perfFill, width: `${(12847/15000)*100}%`, background: '#00ffff'}}></div>
             </div>
           </div>
           <div style={styles.performanceCard}>
             <div style={styles.perfLabel}>Error Rate</div>
             <div style={styles.perfValue}>0.03%</div>
             <div style={styles.perfBar}>
-              <div style={{...styles.perfFill, width: '3%', background: '#00ff00'}}></div>
+              {/* Error rate: lower is better, 1% max scale */}
+              <div style={{...styles.perfFill, width: `${(0.03/1)*100}%`, background: '#00ff00'}}></div>
             </div>
           </div>
           <div style={styles.performanceCard}>
