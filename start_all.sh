@@ -18,6 +18,8 @@
 # DNALockOS Startup Script
 # Starts all required services for the DNA-Key Authentication System
 
+set -e
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -125,7 +127,13 @@ if command -v lsof &> /dev/null; then
     PID=$(lsof -ti:$PORT 2>/dev/null)
     if [ -n "$PID" ]; then
         print_warning "Port $PORT is in use. Stopping existing process..."
-        kill -9 $PID 2>/dev/null
+        # Try graceful shutdown first
+        kill -TERM $PID 2>/dev/null
+        sleep 2
+        # If still running, force kill
+        if kill -0 $PID 2>/dev/null; then
+            kill -9 $PID 2>/dev/null
+        fi
         sleep 1
     fi
 fi

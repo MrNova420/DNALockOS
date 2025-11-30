@@ -32,6 +32,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
+# Cleanup function for failed deployments
+cleanup_on_failure() {
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}[✗]${NC} Deployment failed. Cleaning up..."
+        if [ -d "venv_prod" ] && [ ! -f "venv_prod/.deploy_complete" ]; then
+            rm -rf venv_prod
+            echo -e "${YELLOW}[!]${NC} Removed incomplete production environment"
+        fi
+    fi
+}
+
+# Set trap for cleanup on exit
+trap cleanup_on_failure EXIT
+
 echo -e "${CYAN}"
 echo "╔═══════════════════════════════════════════════════════════════════════╗"
 echo "║           DNALockOS - Production Deployment Script                     ║"
@@ -144,6 +158,9 @@ if [ ! -d "logs" ]; then
     mkdir -p logs
     print_status "Logs directory created"
 fi
+
+# Mark deployment as complete (for cleanup function)
+touch venv_prod/.deploy_complete
 
 echo ""
 echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
