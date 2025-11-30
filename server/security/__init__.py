@@ -1,5 +1,11 @@
 """
 DNALockOS Security Module
+Copyright (c) 2025 WeNova Interactive
+Legal Owner: Kayden Shawn Massengill
+ALL RIGHTS RESERVED.
+
+PROPRIETARY AND CONFIDENTIAL
+Unauthorized copying, modification, or distribution is strictly prohibited.
 
 This module provides enterprise-grade security components:
 
@@ -8,6 +14,7 @@ This module provides enterprise-grade security components:
 - Threat Intelligence: Real-time threat detection
 - Session Management: Secure session handling
 - Audit Logging: Comprehensive audit trail
+- Security Hardening: Anti-tampering and anti-reverse engineering
 """
 
 # Neural Auth
@@ -65,6 +72,19 @@ from server.security.audit_logging import (
     AuditLogStorage,
 )
 
+# Security Hardening
+from server.security.hardening import (
+    SecurityHardeningEngine,
+    SecurityViolationType,
+    SecurityViolation,
+    SecurityError,
+    secure_function,
+    secure_memory_clear,
+    generate_secure_random_bytes,
+    get_security_engine,
+    verify_system_integrity,
+)
+
 __all__ = [
     # Neural Auth
     "NeuralAuthenticationCoordinator",
@@ -106,4 +126,19 @@ __all__ = [
     "AuditEventCategory",
     "AuditSeverity",
     "AuditLogStorage",
+    # Security Hardening
+    "SecurityHardeningEngine",
+    "SecurityViolationType",
+    "SecurityViolation",
+    "SecurityError",
+    "secure_function",
+    "secure_memory_clear",
+    "generate_secure_random_bytes",
+    "get_security_engine",
+    "verify_system_integrity",
 ]
+
+__version__ = "1.0.0"
+__author__ = "WeNova Interactive"
+__copyright__ = "Copyright (c) 2025 WeNova Interactive - Kayden Shawn Massengill"
+__license__ = "Proprietary - All Rights Reserved"

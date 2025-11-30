@@ -2,20 +2,64 @@
 DNALockOS Stress Tests
 
 Load and concurrency tests for the authentication system.
+Military-grade stress testing with full authentication flows.
 """
 
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple
 
 import pytest
 
-from server.core.enrollment import EnrollmentService, EnrollmentRequest
+from server.core.enrollment import EnrollmentService, EnrollmentRequest, enroll_user
 from server.core.authentication import AuthenticationService, ChallengeRequest
 from server.crypto.dna_key import SecurityLevel
+from server.crypto.dna_generator import DNAKeyGenerator
 from server.crypto.signatures import Ed25519SigningKey, generate_ed25519_keypair
+
+
+@dataclass
+class EnrolledKeyWithSigner:
+    """Container for enrolled key with corresponding signing key for testing."""
+    enrollment_response: any
+    signing_key: Ed25519SigningKey
+    verify_key: any
+    key_id: str
+
+
+def create_test_enrollment_with_signer(
+    auth_service: AuthenticationService,
+    subject_id: str
+) -> EnrolledKeyWithSigner:
+    """
+    Create an enrollment with a signing key we control.
+    
+    This is the proper way to test authentication - we generate our own
+    keypair, update the DNA key to use our public key, then we can sign
+    challenges with our private key.
+    """
+    # Enroll the user
+    enrollment = enroll_user(subject_id)
+    assert enrollment.success, f"Enrollment failed: {enrollment.error_message}"
+    
+    # Generate a test keypair we control
+    generator = DNAKeyGenerator()
+    signing_key, verify_key = generator._generate_test_keypair()
+    
+    # Update the DNA key's public key to match our test keypair
+    enrollment.dna_key.cryptographic_material.public_key = verify_key.to_bytes()
+    
+    # Register with auth service
+    auth_service.enroll_key(enrollment.dna_key)
+    
+    return EnrolledKeyWithSigner(
+        enrollment_response=enrollment,
+        signing_key=signing_key,
+        verify_key=verify_key,
+        key_id=enrollment.key_id
+    )
 
 
 @dataclass
@@ -152,23 +196,17 @@ class TestEnrollmentStress:
 
 
 class TestAuthenticationStress:
-    """Stress tests for the authentication service."""
+    """Stress tests for the authentication service with full authentication flows."""
     
     def setup_method(self):
-        """Set up test fixtures."""
-        from server.core.enrollment import enroll_user
-        from server.crypto.dna_generator import DNAKeyGenerator
-        
+        """Set up test fixtures with proper signing capability."""
         self.auth_service = AuthenticationService()
         
-        # Enroll a test key
-        self.enrollment = enroll_user("auth-stress-user")
-        
-        # Generate a test keypair and update the DNA key
-        generator = DNAKeyGenerator()
-        self.signing_key, verify_key = generator._generate_test_keypair()
-        self.enrollment.dna_key.cryptographic_material.public_key = verify_key.to_bytes()
-        self.auth_service.enroll_key(self.enrollment.dna_key)
+        # Create enrollment with signing key we control
+        self.test_key = create_test_enrollment_with_signer(
+            self.auth_service,
+            "auth-stress-user"
+        )
     
     def test_sequential_challenge_generation(self):
         """Test sequential challenge generation performance."""
@@ -177,7 +215,7 @@ class TestAuthenticationStress:
         start_time = time.time()
         
         for i in range(num_challenges):
-            request = ChallengeRequest(key_id=self.enrollment.key_id)
+            request = ChallengeRequest(key_id=self.test_key.key_id)
             
             req_start = time.time()
             response = self.auth_service.generate_challenge(request)
@@ -201,7 +239,7 @@ class TestAuthenticationStress:
         print(f"   RPS: {metrics.requests_per_second:.2f}")
     
     def test_full_authentication_flow_stress(self):
-        """Stress test complete authentication flow."""
+        """Stress test complete authentication flow with proper signing."""
         num_authentications = 20
         metrics = StressTestMetrics()
         start_time = time.time()
@@ -210,16 +248,15 @@ class TestAuthenticationStress:
             req_start = time.time()
             
             # Generate challenge
-            challenge_request = ChallengeRequest(key_id=self.enrollment_response.key_id)
+            challenge_request = ChallengeRequest(key_id=self.test_key.key_id)
             challenge_response = self.auth_service.generate_challenge(challenge_request)
             
             if not challenge_response.success:
                 metrics.add_request(time.time() - req_start, False)
                 continue
             
-            # Sign challenge
-            signing_key = Ed25519SigningKey.from_bytes(self.enrollment_response.dna_key.private_key)
-            signature = signing_key.sign(challenge_response.challenge)
+            # Sign challenge with our test signing key
+            signature = self.test_key.signing_key.sign(challenge_response.challenge)
             
             # Authenticate
             auth_response = self.auth_service.authenticate(
@@ -234,7 +271,7 @@ class TestAuthenticationStress:
         
         # Assertions
         assert metrics.successful_requests >= num_authentications * 0.95, \
-            "Full auth flow should be reliable"
+            f"Full auth flow should be reliable, got {metrics.successful_requests}/{num_authentications}"
         
         print(f"\n📊 Full Authentication Flow Stress Test Results:")
         print(f"   Total: {metrics.total_requests}")
@@ -244,15 +281,14 @@ class TestAuthenticationStress:
 
 
 class TestMixedWorkloadStress:
-    """Stress tests with mixed workloads."""
+    """Stress tests with mixed workloads including full authentication flows."""
     
-    def test_mixed_enrollment_and_auth(self):
-        """Test mixed enrollment and authentication workload."""
-        enrollment_service = EnrollmentService()
+    def test_mixed_enrollment_and_full_auth(self):
+        """Test mixed enrollment and full authentication workload."""
         auth_service = AuthenticationService()
         
         num_operations = 30
-        enrolled_keys = []
+        enrolled_keys: List[EnrolledKeyWithSigner] = []
         
         enroll_metrics = StressTestMetrics()
         auth_metrics = StressTestMetrics()
@@ -260,40 +296,35 @@ class TestMixedWorkloadStress:
         start_time = time.time()
         
         for i in range(num_operations):
-            # Alternate between enrollment and authentication
+            # Alternate between enrollment and full authentication
             if i % 2 == 0 or len(enrolled_keys) == 0:
-                # Enrollment
-                request = EnrollmentRequest(
-                    subject_id=f"mixed-user-{i}",
-                    subject_type="human",
-                    security_level=SecurityLevel.STANDARD,
-                    policy_id="default-policy-v1",
-                    validity_days=365
-                )
-                
+                # Enrollment with signing key
                 req_start = time.time()
-                response = enrollment_service.enroll(request)
-                req_duration = time.time() - req_start
-                
-                enroll_metrics.add_request(req_duration, response.success)
-                
-                if response.success:
-                    auth_service.enroll_key(response.dna_key)
-                    enrolled_keys.append(response)
+                try:
+                    test_key = create_test_enrollment_with_signer(
+                        auth_service,
+                        f"mixed-user-{i}"
+                    )
+                    enrolled_keys.append(test_key)
+                    enroll_metrics.add_request(time.time() - req_start, True)
+                except Exception as e:
+                    enroll_metrics.add_request(time.time() - req_start, False)
             else:
-                # Authentication with random enrolled key
+                # Full authentication with random enrolled key
                 import random
-                key_response = random.choice(enrolled_keys)
+                test_key = random.choice(enrolled_keys)
                 
                 req_start = time.time()
                 
-                challenge_request = ChallengeRequest(key_id=key_response.key_id)
+                # Generate challenge
+                challenge_request = ChallengeRequest(key_id=test_key.key_id)
                 challenge_response = auth_service.generate_challenge(challenge_request)
                 
                 if challenge_response.success:
-                    signing_key = Ed25519SigningKey.from_bytes(key_response.dna_key.private_key)
-                    signature = signing_key.sign(challenge_response.challenge)
+                    # Sign with our controlled signing key
+                    signature = test_key.signing_key.sign(challenge_response.challenge)
                     
+                    # Authenticate
                     auth_response = auth_service.authenticate(
                         challenge_response.challenge_id,
                         signature

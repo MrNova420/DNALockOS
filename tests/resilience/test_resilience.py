@@ -2,19 +2,62 @@
 DNALockOS Resilience Tests
 
 Tests for system behavior under failure conditions and recovery scenarios.
+Military-grade resilience testing with full authentication flows.
 """
 
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from server.core.enrollment import EnrollmentService, EnrollmentRequest
+from server.core.enrollment import EnrollmentService, EnrollmentRequest, enroll_user
 from server.core.authentication import AuthenticationService, ChallengeRequest
 from server.crypto.dna_key import SecurityLevel
+from server.crypto.dna_generator import DNAKeyGenerator
 from server.crypto.signatures import Ed25519SigningKey, generate_ed25519_keypair
+
+
+@dataclass
+class AuthenticatedKeyContainer:
+    """Container for a test key with its signing capability."""
+    enrollment: Any
+    signing_key: Ed25519SigningKey
+    verify_key: Any
+    key_id: str
+
+
+def create_authenticated_test_key(
+    auth_service: AuthenticationService,
+    subject_id: str
+) -> AuthenticatedKeyContainer:
+    """
+    Create an enrolled key with signing capability for testing.
+    
+    This properly sets up a key where we control the private key
+    for full authentication testing.
+    """
+    # Enroll the user
+    enrollment = enroll_user(subject_id)
+    assert enrollment.success, f"Enrollment failed: {enrollment.error_message}"
+    
+    # Generate a test keypair we control
+    generator = DNAKeyGenerator()
+    signing_key, verify_key = generator._generate_test_keypair()
+    
+    # Update the DNA key's public key to match our test keypair
+    enrollment.dna_key.cryptographic_material.public_key = verify_key.to_bytes()
+    
+    # Register with auth service
+    auth_service.enroll_key(enrollment.dna_key)
+    
+    return AuthenticatedKeyContainer(
+        enrollment=enrollment,
+        signing_key=signing_key,
+        verify_key=verify_key,
+        key_id=enrollment.key_id
+    )
 
 
 class TestGracefulDegradation:
@@ -52,56 +95,45 @@ class TestGracefulDegradation:
         assert response2.success
     
     def test_authentication_after_service_restart(self):
-        """Authentication should work with fresh service instances."""
-        enrollment_service = EnrollmentService()
+        """Authentication should work with fresh service instances - full flow test."""
         auth_service1 = AuthenticationService()
         
-        # Enroll a key
-        request = EnrollmentRequest(
-            subject_id="restart-test-user",
-            subject_type="human",
-            security_level=SecurityLevel.STANDARD,
-            policy_id="default-policy-v1",
-            validity_days=365
-        )
-        
-        enroll_response = enrollment_service.enroll(request)
-        assert enroll_response.success
-        
-        # Register with first auth service
-        auth_service1.enroll_key(enroll_response.dna_key)
+        # Create enrollment with signing key we control
+        test_key = create_authenticated_test_key(auth_service1, "restart-test-user")
         
         # Generate challenge with first service
-        challenge_request = ChallengeRequest(key_id=enroll_response.key_id)
+        challenge_request = ChallengeRequest(key_id=test_key.key_id)
         challenge_response = auth_service1.generate_challenge(challenge_request)
         assert challenge_response.success
         
-        # Sign the challenge
-        signing_key = Ed25519SigningKey.from_bytes(enroll_response.dna_key.private_key)
-        signature = signing_key.sign(challenge_response.challenge)
+        # Sign the challenge with our controlled signing key
+        signature = test_key.signing_key.sign(challenge_response.challenge)
         
         # Authenticate with first service
         auth_result = auth_service1.authenticate(
             challenge_response.challenge_id,
             signature
         )
-        assert auth_result.success
+        assert auth_result.success, f"First auth failed: {auth_result.error_message}"
         
         # "Restart" - create new service instance
         auth_service2 = AuthenticationService()
-        auth_service2.enroll_key(enroll_response.dna_key)
+        
+        # Re-register the key with the new service (simulating reload from storage)
+        auth_service2.enroll_key(test_key.enrollment.dna_key)
         
         # New authentication should work with new service
         challenge_response2 = auth_service2.generate_challenge(challenge_request)
         assert challenge_response2.success
         
-        signature2 = signing_key.sign(challenge_response2.challenge)
+        # Sign new challenge with same signing key
+        signature2 = test_key.signing_key.sign(challenge_response2.challenge)
         
         auth_result2 = auth_service2.authenticate(
             challenge_response2.challenge_id,
             signature2
         )
-        assert auth_result2.success
+        assert auth_result2.success, f"Second auth failed: {auth_result2.error_message}"
 
 
 class TestErrorHandling:
@@ -152,34 +184,18 @@ class TestErrorHandling:
     
     def test_authentication_with_revoked_challenge(self):
         """Authentication with manually invalidated challenge should fail gracefully."""
-        enrollment_service = EnrollmentService()
         auth_service = AuthenticationService()
-        sig_service = SignatureService()
         
-        # Enroll
-        request = EnrollmentRequest(
-            subject_id="revoked-challenge-test",
-            subject_type="human",
-            security_level=SecurityLevel.STANDARD,
-            policy_id="default-policy-v1",
-            validity_days=365
-        )
-        
-        enroll_response = enrollment_service.enroll(request)
-        assert enroll_response.success
-        
-        auth_service.enroll_key(enroll_response.dna_key)
+        # Create enrollment with signing key we control
+        test_key = create_authenticated_test_key(auth_service, "revoked-challenge-test")
         
         # Get challenge
-        challenge_request = ChallengeRequest(key_id=enroll_response.key_id)
+        challenge_request = ChallengeRequest(key_id=test_key.key_id)
         challenge_response = auth_service.generate_challenge(challenge_request)
         assert challenge_response.success
         
-        # Sign it
-        signature = sig_service.sign(
-            challenge_response.challenge,
-            enroll_response.dna_key.private_key
-        )
+        # Sign it with our controlled signing key
+        signature = test_key.signing_key.sign(challenge_response.challenge)
         
         # Manually clean up the challenge (simulating revocation)
         auth_service.cleanup_expired_challenges()
@@ -223,11 +239,12 @@ class TestDataIntegrity:
         assert dna_key.key_id == response.key_id
         assert dna_key.subject is not None
         assert dna_key.dna_helix is not None
-        assert dna_key.public_key is not None
-        assert dna_key.private_key is not None
+        assert dna_key.cryptographic_material is not None
+        assert dna_key.cryptographic_material.public_key is not None
         
-        # Security level should match
-        assert dna_key.security_level == SecurityLevel.ENHANCED
+        # Security score should be calculated
+        assert dna_key.security_score is not None
+        assert dna_key.security_score > 0
     
     def test_serialization_integrity(self):
         """Serialized keys should deserialize correctly."""
@@ -256,7 +273,8 @@ class TestDataIntegrity:
         
         # Verify integrity
         assert deserialized.key_id == response.dna_key.key_id
-        assert deserialized.security_level == response.dna_key.security_level
+        # Verify the helix checksum matches
+        assert deserialized.dna_helix.checksum == response.dna_key.dna_helix.checksum
 
 
 class TestConcurrentAccess:
