@@ -10,11 +10,19 @@
 # is limited or PostgreSQL is not available.
 #
 # Usage: pip install -r requirements-mobile.txt
+#
+# IMPORTANT: This configuration removes heavy native dependencies that are
+# problematic on mobile/Termux platforms. The application will automatically
+# fall back to pure-Python alternatives where available.
+#
+# For full production features, use requirements.txt on servers/CI.
 # ==============================================================================
 
-# Core Cryptographic Libraries (REQUIRED)
-PyNaCl==1.5.0              # libsodium bindings (Ed25519, X25519, AES-256-GCM)
-cryptography>=43.0.0,<47.0.0  # Additional crypto primitives
+# Core Cryptographic Libraries
+# NOTE: PyNaCl is EXCLUDED - the system falls back to cryptography library
+#       If you have working build tools, you can optionally install PyNaCl:
+#       pkg install libsodium && pip install PyNaCl
+cryptography>=43.0.0,<47.0.0  # Ed25519, X25519, AES-256-GCM (fallback for PyNaCl)
 argon2-cffi==23.1.0        # Argon2id password hashing
 
 # Data Serialization (REQUIRED)
@@ -22,7 +30,7 @@ cbor2==5.6.0               # CBOR serialization for DNA keys
 
 # Web Framework (REQUIRED)
 fastapi==0.104.1
-uvicorn==0.24.0            # Without [standard] extras for lighter install
+uvicorn==0.24.0            # Without [standard] extras - no uvloop dependency
 pydantic==2.5.0            # Data validation
 pydantic-settings==2.1.0   # Settings management
 
@@ -45,6 +53,9 @@ rich>=13.7.0
 # ==============================================================================
 # EXCLUDED FOR MOBILE (reduces build time and avoids compilation issues):
 # ==============================================================================
+# - PyNaCl: Requires libsodium compilation (system uses cryptography fallback)
+# - uvloop: Requires libuv compilation (system uses default asyncio)
+# - pyzmq: Requires libzmq compilation (ZMQ messaging disabled)
 # - psycopg2-binary: Requires pg_config and PostgreSQL headers
 # - asyncpg: Requires PostgreSQL development headers
 # - redis: Optional - system uses in-memory fallback
@@ -53,4 +64,13 @@ rich>=13.7.0
 # - black, flake8, mypy, isort: Dev tools not needed at runtime
 # - pytest and testing libraries: Not needed for production
 # - prometheus-client, structlog: Monitoring/logging - optional
+#
+# FALLBACK BEHAVIOR:
+# - Crypto: cryptography library provides Ed25519 signing (secure fallback)
+# - Event loop: Default asyncio (slightly slower than uvloop but works everywhere)
+# - Messaging: ZMQ features disabled (no inter-service messaging)
+#
+# To optionally install native deps if your Termux has build tools:
+#   pkg install clang make pkg-config binutils libsodium
+#   pip install PyNaCl uvloop
 # ==============================================================================
