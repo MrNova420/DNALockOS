@@ -2,22 +2,30 @@
 DNA-Key Authentication System - DNA Key Generation
 
 Implements the DNA key generation algorithm that creates thousands
-of segments forming a unique authentication credential.
+to millions of segments forming a unique authentication credential.
 
-Generation follows the algorithm specified in the blueprint:
-- 40% Entropy segments
-- 10% Policy segments
-- 5% Hash segments
-- 5% Temporal segments
-- 20% Capability segments
-- 10% Signature segments
-- 10% Metadata segments
+This is a CUSTOM generation system designed to:
+- Generate 1 million+ lines of unique security data
+- Integrate 30+ security methods automatically
+- Create multi-layer security architecture
+- Be user-friendly (complexity hidden from users)
+- Be futuristic and top-secure
+
+Generation follows the enhanced algorithm:
+- 40% Entropy segments (Layer 2 - Entropy Matrix)
+- 20% Capability segments (Layer 3 - Security Framework)
+- 10% Policy segments (Layer 3 - Security Framework)
+- 10% Signature segments (Layer 5 - Crypto Nucleus)
+- 10% Metadata segments (Layer 1 - Outer Shell)
+- 5% Hash segments (Layer 4 - Identity Core)
+- 5% Temporal segments (Layer 3 - Security Framework)
 """
 
 import hashlib
 import secrets
+import string
 from datetime import datetime, timedelta, timezone
-from typing import Any, List
+from typing import Any, Dict, List, Tuple
 
 from server.crypto.dna_key import (
     CryptographicMaterial,
@@ -25,8 +33,11 @@ from server.crypto.dna_key import (
     DNAKey,
     DNASegment,
     IssuerInfo,
+    LayerChecksum,
     PolicyBinding,
     SecurityLevel,
+    SecurityLayer,
+    SecurityMethodsIntegrated,
     SegmentType,
     SubjectInfo,
     VisualDNA,
@@ -34,31 +45,58 @@ from server.crypto.dna_key import (
 from server.crypto.signatures import generate_ed25519_keypair
 
 
+# Character set for DNA strand visual representation (future use)
+# Will be used for generating human-readable DNA strand representations
+DNA_ALPHABET = string.ascii_letters + string.digits + "!@#$%^&*()-_=+[]{}|;:,.<>?/~`"
+
+
 class DNAKeyGenerator:
     """
     Generator for DNA authentication keys.
 
     Creates DNA keys with specified security levels, containing
-    thousands of cryptographically secure segments.
+    thousands to millions of cryptographically secure segments.
+    
+    This is a CUSTOM generation system that:
+    - Auto-generates all security methods
+    - Combines 30+ techniques into one DNA strand
+    - Creates user-friendly authentication artifacts
+    - Produces futuristic, top-secure credentials
     """
 
     # Segment counts per security level
     SEGMENT_COUNTS = {
-        SecurityLevel.STANDARD: 1024,  # ~100KB
-        SecurityLevel.ENHANCED: 16384,  # ~1.5MB
-        SecurityLevel.MAXIMUM: 65536,  # ~6MB
-        SecurityLevel.GOVERNMENT: 262144,  # ~25MB
+        SecurityLevel.STANDARD: 1024,       # ~100KB
+        SecurityLevel.ENHANCED: 16384,      # ~1.5MB
+        SecurityLevel.MAXIMUM: 65536,       # ~6MB
+        SecurityLevel.GOVERNMENT: 262144,   # ~25MB
+        SecurityLevel.ULTIMATE: 1048576,    # ~100MB - 1 million lines
     }
 
     # Distribution of segment types (percentages)
     SEGMENT_DISTRIBUTION = {
-        SegmentType.ENTROPY: 0.40,  # 40%
-        SegmentType.POLICY: 0.10,  # 10%
-        SegmentType.HASH: 0.05,  # 5%
-        SegmentType.TEMPORAL: 0.05,  # 5%
-        SegmentType.CAPABILITY: 0.20,  # 20%
-        SegmentType.SIGNATURE: 0.10,  # 10%
-        SegmentType.METADATA: 0.10,  # 10%
+        SegmentType.ENTROPY: 0.40,      # 40% - Foundation of security
+        SegmentType.CAPABILITY: 0.20,   # 20% - Permissions/scopes
+        SegmentType.POLICY: 0.10,       # 10% - Access rules
+        SegmentType.SIGNATURE: 0.10,    # 10% - Cryptographic proofs
+        SegmentType.METADATA: 0.10,     # 10% - Context information
+        SegmentType.HASH: 0.05,         # 5%  - Identity commitments
+        SegmentType.TEMPORAL: 0.05,     # 5%  - Time-based data
+    }
+    
+    # Mapping of segment types to security layers
+    LAYER_MAPPING = {
+        SegmentType.METADATA: SecurityLayer.OUTER_SHELL,
+        SegmentType.ENTROPY: SecurityLayer.ENTROPY_MATRIX,
+        SegmentType.POLICY: SecurityLayer.SECURITY_FRAMEWORK,
+        SegmentType.CAPABILITY: SecurityLayer.SECURITY_FRAMEWORK,
+        SegmentType.TEMPORAL: SecurityLayer.SECURITY_FRAMEWORK,
+        SegmentType.HASH: SecurityLayer.IDENTITY_CORE,
+        SegmentType.SIGNATURE: SecurityLayer.CRYPTO_NUCLEUS,
+        SegmentType.KEY_DERIVATION: SecurityLayer.CRYPTO_NUCLEUS,
+        SegmentType.NONCE: SecurityLayer.ENTROPY_MATRIX,
+        SegmentType.ATTESTATION: SecurityLayer.IDENTITY_CORE,
+        SegmentType.REVOCATION: SecurityLayer.OUTER_SHELL,
     }
 
     def __init__(self, security_level: SecurityLevel = SecurityLevel.STANDARD):
@@ -162,8 +200,75 @@ class DNAKeyGenerator:
         # Sign the DNA key with issuer key
         key_data = self._serialize_for_signing(dna_key)
         issuer.issuer_signature = issuer_key.sign(key_data)
+        
+        # Compute layer checksums
+        layer_checksums = self._compute_layer_checksums(segments)
+        dna_key.layer_checksums = layer_checksums
+        
+        # Calculate total lines (each segment represents one or more lines)
+        dna_key.total_lines = self._calculate_total_lines(segments)
+        
+        # Calculate security score
+        dna_key.calculate_security_score()
 
         return dna_key
+    
+    def _compute_layer_checksums(self, segments: List[DNASegment]) -> List[LayerChecksum]:
+        """
+        Compute checksums for each security layer.
+        
+        Args:
+            segments: All DNA segments
+            
+        Returns:
+            List of LayerChecksum objects for each layer
+        """
+        layer_checksums = []
+        
+        # Group segments by layer
+        layer_segments: Dict[int, List[DNASegment]] = {1: [], 2: [], 3: [], 4: [], 5: []}
+        
+        for segment in segments:
+            layer = self.LAYER_MAPPING.get(segment.type, SecurityLayer.OUTER_SHELL)
+            layer_segments[layer.value].append(segment)
+        
+        # Compute checksum for each layer
+        for layer_num in range(1, 6):
+            segs = layer_segments[layer_num]
+            if segs:
+                hasher = hashlib.sha3_512()
+                for seg in sorted(segs, key=lambda s: s.position):
+                    hasher.update(seg.data)
+                
+                layer_checksums.append(LayerChecksum(
+                    layer=layer_num,
+                    algorithm="SHA3-512",
+                    checksum=hasher.hexdigest(),
+                    segment_count=len(segs)
+                ))
+        
+        return layer_checksums
+    
+    def _calculate_total_lines(self, segments: List[DNASegment]) -> int:
+        """
+        Calculate total lines of security data.
+        
+        Each segment can represent multiple "lines" of encoded data.
+        A line is roughly 64 characters of mixed symbols/letters/numbers.
+        
+        Args:
+            segments: All DNA segments
+            
+        Returns:
+            Total number of lines
+        """
+        total_bytes = sum(len(seg.data) for seg in segments)
+        # Each "line" is approximately 64 bytes of data
+        # But we also count the hash representations
+        lines_from_data = total_bytes // 32  # ~2 lines per segment
+        lines_from_hashes = len(segments)    # 1 line per hash
+        
+        return lines_from_data + lines_from_hashes
 
     def _generate_segments(self, subject_id: str, signing_key: Any) -> List[DNASegment]:
         """

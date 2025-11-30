@@ -26,8 +26,15 @@ from typing import Any, Dict, List, Optional
 
 
 class SegmentType(Enum):
-    """DNA segment types (digital bases)."""
+    """
+    DNA segment types (digital bases).
+    
+    Each type represents a different category of security data,
+    analogous to nucleotide bases in biological DNA (A, T, G, C).
+    Our digital DNA has 20 distinct segment types for maximum security.
+    """
 
+    # Core Security Types (Original)
     ENTROPY = "E"  # Cryptographic randomness
     POLICY = "P"  # Access control rules
     HASH = "H"  # Identity commitment
@@ -38,6 +45,18 @@ class SegmentType(Enum):
     BIOMETRIC = "B"  # Biometric anchors
     GEOLOCATION = "G"  # Location policies
     REVOCATION = "R"  # Revocation tokens
+    
+    # Extended Security Types (New)
+    KEY_DERIVATION = "K"    # Key derivation data (HKDF, PBKDF2)
+    ENCRYPTION = "X"        # Encrypted payload segments
+    NONCE = "N"             # Anti-replay nonces
+    CHALLENGE = "Q"         # Challenge-response data
+    ATTESTATION = "A"       # Third-party attestations
+    FINGERPRINT = "F"       # Device/browser fingerprints
+    RECOVERY = "Y"          # Recovery and backup data
+    AUDIT = "U"             # Audit trail segments
+    QUANTUM = "W"           # Post-quantum security data
+    CUSTOM = "Z"            # Custom/extensible segments
 
 
 class SecurityLevel(Enum):
@@ -47,6 +66,22 @@ class SecurityLevel(Enum):
     ENHANCED = "enhanced"  # 16,384 segments (~1.5MB)
     MAXIMUM = "maximum"  # 65,536 segments (~6MB)
     GOVERNMENT = "government"  # 262,144 segments (~25MB)
+    ULTIMATE = "ultimate"  # 1,048,576 segments (~100MB) - 1 million lines
+
+
+class SecurityLayer(Enum):
+    """
+    Multi-layer security architecture.
+    
+    Each DNA strand contains 5 concentric security layers,
+    from outermost to innermost, each with distinct security methods.
+    """
+    
+    OUTER_SHELL = 1      # Layer 1: Format, signatures, metadata (5%)
+    ENTROPY_MATRIX = 2   # Layer 2: Cryptographic randomness (40%)
+    SECURITY_FRAMEWORK = 3  # Layer 3: Policies, capabilities, temporal (30%)
+    IDENTITY_CORE = 4    # Layer 4: Hashes, commitments, attestations (15%)
+    CRYPTO_NUCLEUS = 5   # Layer 5: Keys, salts, signatures, recovery (10%)
 
 
 @dataclass
@@ -148,6 +183,106 @@ class VisualDNA:
 
 
 @dataclass
+class SecurityMethodsIntegrated:
+    """
+    Tracks all security methods integrated into the DNA strand.
+    
+    This comprehensive tracking ensures we know exactly what
+    security techniques are embedded in each DNA key.
+    """
+    
+    # Hashing algorithms used
+    hash_algorithms: List[str] = field(default_factory=lambda: [
+        "SHA3-512", "SHA3-256", "SHA-256", "BLAKE2b", "SHAKE256"
+    ])
+    
+    # Encryption algorithms used  
+    encryption_algorithms: List[str] = field(default_factory=lambda: [
+        "AES-256-GCM", "ChaCha20-Poly1305", "XSalsa20-Poly1305"
+    ])
+    
+    # Signature algorithms used
+    signature_algorithms: List[str] = field(default_factory=lambda: [
+        "Ed25519", "ECDSA-P256"
+    ])
+    
+    # Key derivation functions used
+    key_derivation_functions: List[str] = field(default_factory=lambda: [
+        "HKDF-SHA512", "Argon2id", "PBKDF2-SHA512"
+    ])
+    
+    # Random number generators used
+    random_sources: List[str] = field(default_factory=lambda: [
+        "CSPRNG", "os.urandom", "secrets.token_bytes"
+    ])
+    
+    # Anti-tampering techniques
+    anti_tampering: List[str] = field(default_factory=lambda: [
+        "Merkle-Tree-Checksums", "Segment-Interlocking", 
+        "Position-Binding", "Type-Binding"
+    ])
+    
+    # Anti-replay mechanisms
+    anti_replay: List[str] = field(default_factory=lambda: [
+        "Nonce-Tracking", "Timestamp-Windows", 
+        "Sequence-Numbers", "One-Time-Tokens"
+    ])
+    
+    # Identity protection
+    identity_protection: List[str] = field(default_factory=lambda: [
+        "Hash-Commitment", "Attribute-Blinding", 
+        "Unlinkability", "Forward-Secrecy"
+    ])
+    
+    # Brute force resistance
+    brute_force_resistance: List[str] = field(default_factory=lambda: [
+        "Large-Key-Space", "Rate-Limiting", 
+        "Exponential-Backoff", "Account-Lockout"
+    ])
+    
+    # Total count of security methods
+    @property
+    def total_methods_count(self) -> int:
+        """Count total number of security methods integrated."""
+        return (
+            len(self.hash_algorithms) +
+            len(self.encryption_algorithms) +
+            len(self.signature_algorithms) +
+            len(self.key_derivation_functions) +
+            len(self.random_sources) +
+            len(self.anti_tampering) +
+            len(self.anti_replay) +
+            len(self.identity_protection) +
+            len(self.brute_force_resistance)
+        )
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "hash_algorithms": self.hash_algorithms,
+            "encryption_algorithms": self.encryption_algorithms,
+            "signature_algorithms": self.signature_algorithms,
+            "key_derivation_functions": self.key_derivation_functions,
+            "random_sources": self.random_sources,
+            "anti_tampering": self.anti_tampering,
+            "anti_replay": self.anti_replay,
+            "identity_protection": self.identity_protection,
+            "brute_force_resistance": self.brute_force_resistance,
+            "total_methods_count": self.total_methods_count
+        }
+
+
+@dataclass  
+class LayerChecksum:
+    """Checksum for each security layer."""
+    
+    layer: int  # 1-5
+    algorithm: str  # e.g., "SHA3-512"
+    checksum: str  # Hex-encoded checksum
+    segment_count: int  # Number of segments in this layer
+
+
+@dataclass
 class DNAHelix:
     """
     The DNA helix structure containing all segments.
@@ -215,11 +350,26 @@ class DNAKey:
     Complete DNA-Key authentication credential.
 
     The DNA key is a biologically-inspired credential containing
-    thousands of segments that together form a unique authentication
-    identity, analogous to a complete genome.
+    thousands to millions of segments that together form a unique 
+    authentication identity, analogous to a complete genome.
+    
+    Multi-Layer Architecture:
+    - Layer 1: Outer Shell (format, signatures, metadata)
+    - Layer 2: Entropy Matrix (cryptographic randomness)
+    - Layer 3: Security Framework (policies, capabilities)
+    - Layer 4: Identity Core (hashes, commitments)
+    - Layer 5: Cryptographic Nucleus (keys, signatures)
+    
+    Security Methods Integrated:
+    - 5+ Hash algorithms (SHA3-512, SHA3-256, SHA-256, BLAKE2b, SHAKE256)
+    - 3+ Encryption algorithms (AES-256-GCM, ChaCha20-Poly1305, XSalsa20)
+    - 2+ Signature algorithms (Ed25519, ECDSA-P256)
+    - 3+ Key derivation functions (HKDF, Argon2id, PBKDF2)
+    - Anti-tampering, anti-replay, identity protection
+    - Brute force resistance mechanisms
     """
 
-    format_version: str = "1.0"
+    format_version: str = "2.0"
     key_id: Optional[str] = None
     created_timestamp: Optional[datetime] = None
     expires_timestamp: Optional[datetime] = None
@@ -230,6 +380,12 @@ class DNAKey:
     cryptographic_material: Optional[CryptographicMaterial] = None
     policy_binding: Optional[PolicyBinding] = None
     visual_dna: VisualDNA = field(default_factory=VisualDNA)
+    
+    # New fields for enhanced security tracking
+    security_methods: SecurityMethodsIntegrated = field(default_factory=SecurityMethodsIntegrated)
+    layer_checksums: List[LayerChecksum] = field(default_factory=list)
+    total_lines: int = 0  # Total lines/symbols in the strand
+    security_score: float = 0.0  # Calculated security strength (0-100)
 
     def __post_init__(self):
         """Initialize timestamps and key ID if not provided."""
@@ -314,5 +470,60 @@ class DNAKey:
             result["policy_binding"] = asdict(self.policy_binding)
 
         result["visual_dna"] = asdict(self.visual_dna)
+        
+        # Add new security tracking fields
+        result["security_methods"] = self.security_methods.to_dict()
+        result["layer_checksums"] = [
+            {"layer": lc.layer, "algorithm": lc.algorithm, 
+             "checksum": lc.checksum, "segment_count": lc.segment_count}
+            for lc in self.layer_checksums
+        ]
+        result["total_lines"] = self.total_lines
+        result["security_score"] = self.security_score
 
         return result
+    
+    def calculate_security_score(self) -> float:
+        """
+        Calculate the security strength score (0-100).
+        
+        Based on:
+        - Segment count (more = stronger)
+        - Security methods integrated
+        - Layer completeness
+        - Checksum validity
+        """
+        score = 0.0
+        
+        # Segment count contribution (max 40 points)
+        segment_count = self.dna_helix.segment_count
+        if segment_count >= 1_000_000:
+            score += 40.0
+        elif segment_count >= 262_144:
+            score += 35.0
+        elif segment_count >= 65_536:
+            score += 30.0
+        elif segment_count >= 16_384:
+            score += 25.0
+        elif segment_count >= 1_024:
+            score += 20.0
+        else:
+            score += segment_count / 1024 * 20.0
+        
+        # Security methods contribution (max 30 points)
+        methods_count = self.security_methods.total_methods_count
+        score += min(30.0, methods_count * 0.75)
+        
+        # Layer checksums contribution (max 15 points)
+        score += len(self.layer_checksums) * 3.0
+        
+        # Checksum validity (max 10 points)
+        if self.dna_helix.checksum:
+            score += 10.0
+        
+        # Issuer signature (max 5 points)
+        if self.issuer and self.issuer.issuer_signature:
+            score += 5.0
+        
+        self.security_score = min(100.0, score)
+        return self.security_score

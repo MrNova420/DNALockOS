@@ -8,6 +8,9 @@ Tests cover:
 - DNA key generation with various security levels
 - Segment distribution and shuffling
 - Key validation and expiration
+- Multi-layer security architecture
+- Security methods integration
+- Custom verification system
 """
 
 import pytest
@@ -19,6 +22,9 @@ from server.crypto.dna_key import (
     DNASegment,
     SegmentType,
     SecurityLevel,
+    SecurityLayer,
+    SecurityMethodsIntegrated,
+    LayerChecksum,
     IssuerInfo,
     SubjectInfo,
     CryptographicMaterial,
@@ -185,7 +191,7 @@ class TestDNAKey:
         """Test creating a DNA key."""
         key = DNAKey()
         
-        assert key.format_version == "1.0"
+        assert key.format_version == "2.0"
         assert key.key_id is not None
         assert key.created_timestamp is not None
         assert isinstance(key.dna_helix, DNAHelix)
@@ -427,3 +433,178 @@ class TestSegmentGeneration:
         
         # For 1024 segments, highly unlikely to be in order if shuffled
         assert not is_ordered
+
+
+class TestSecurityLevels:
+    """Test extended security levels including ULTIMATE."""
+    
+    def test_ultimate_security_level_exists(self):
+        """Test that ULTIMATE security level is defined."""
+        assert hasattr(SecurityLevel, 'ULTIMATE')
+        assert SecurityLevel.ULTIMATE.value == "ultimate"
+    
+    def test_ultimate_security_level_segment_count(self):
+        """Test ULTIMATE level has 1 million segments."""
+        generator = DNAKeyGenerator(SecurityLevel.ULTIMATE)
+        assert generator.segment_count == 1048576
+    
+    def test_all_security_levels(self):
+        """Test all security levels have correct segment counts."""
+        expected_counts = {
+            SecurityLevel.STANDARD: 1024,
+            SecurityLevel.ENHANCED: 16384,
+            SecurityLevel.MAXIMUM: 65536,
+            SecurityLevel.GOVERNMENT: 262144,
+            SecurityLevel.ULTIMATE: 1048576,
+        }
+        
+        for level, expected_count in expected_counts.items():
+            generator = DNAKeyGenerator(level)
+            assert generator.segment_count == expected_count
+
+
+class TestSecurityLayers:
+    """Test multi-layer security architecture."""
+    
+    def test_security_layer_enum_exists(self):
+        """Test SecurityLayer enum is defined."""
+        assert hasattr(SecurityLayer, 'OUTER_SHELL')
+        assert hasattr(SecurityLayer, 'ENTROPY_MATRIX')
+        assert hasattr(SecurityLayer, 'SECURITY_FRAMEWORK')
+        assert hasattr(SecurityLayer, 'IDENTITY_CORE')
+        assert hasattr(SecurityLayer, 'CRYPTO_NUCLEUS')
+    
+    def test_security_layer_values(self):
+        """Test SecurityLayer has correct values (1-5)."""
+        assert SecurityLayer.OUTER_SHELL.value == 1
+        assert SecurityLayer.ENTROPY_MATRIX.value == 2
+        assert SecurityLayer.SECURITY_FRAMEWORK.value == 3
+        assert SecurityLayer.IDENTITY_CORE.value == 4
+        assert SecurityLayer.CRYPTO_NUCLEUS.value == 5
+
+
+class TestSecurityMethodsIntegrated:
+    """Test security methods tracking."""
+    
+    def test_security_methods_default_values(self):
+        """Test SecurityMethodsIntegrated has default security methods."""
+        methods = SecurityMethodsIntegrated()
+        
+        assert "SHA3-512" in methods.hash_algorithms
+        assert "AES-256-GCM" in methods.encryption_algorithms
+        assert "Ed25519" in methods.signature_algorithms
+        assert "HKDF-SHA512" in methods.key_derivation_functions
+    
+    def test_security_methods_count(self):
+        """Test total methods count is calculated correctly."""
+        methods = SecurityMethodsIntegrated()
+        
+        # Should have 30+ security methods total
+        assert methods.total_methods_count >= 30
+    
+    def test_security_methods_to_dict(self):
+        """Test SecurityMethodsIntegrated can be converted to dict."""
+        methods = SecurityMethodsIntegrated()
+        methods_dict = methods.to_dict()
+        
+        assert "hash_algorithms" in methods_dict
+        assert "encryption_algorithms" in methods_dict
+        assert "total_methods_count" in methods_dict
+
+
+class TestLayerChecksums:
+    """Test layer checksum functionality."""
+    
+    def test_layer_checksum_creation(self):
+        """Test LayerChecksum dataclass works correctly."""
+        checksum = LayerChecksum(
+            layer=1,
+            algorithm="SHA3-512",
+            checksum="abc123",
+            segment_count=100
+        )
+        
+        assert checksum.layer == 1
+        assert checksum.algorithm == "SHA3-512"
+        assert checksum.checksum == "abc123"
+        assert checksum.segment_count == 100
+    
+    def test_generated_key_has_layer_checksums(self):
+        """Test generated keys have layer checksums."""
+        generator = DNAKeyGenerator(SecurityLevel.STANDARD)
+        key = generator.generate("user@example.com")
+        
+        assert len(key.layer_checksums) > 0
+        assert all(isinstance(lc, LayerChecksum) for lc in key.layer_checksums)
+
+
+class TestExtendedSegmentTypes:
+    """Test extended segment types."""
+    
+    def test_new_segment_types_exist(self):
+        """Test new segment types are defined."""
+        # Original types
+        assert hasattr(SegmentType, 'ENTROPY')
+        assert hasattr(SegmentType, 'POLICY')
+        assert hasattr(SegmentType, 'HASH')
+        
+        # New extended types
+        assert hasattr(SegmentType, 'KEY_DERIVATION')
+        assert hasattr(SegmentType, 'ENCRYPTION')
+        assert hasattr(SegmentType, 'NONCE')
+        assert hasattr(SegmentType, 'CHALLENGE')
+        assert hasattr(SegmentType, 'ATTESTATION')
+        assert hasattr(SegmentType, 'FINGERPRINT')
+        assert hasattr(SegmentType, 'RECOVERY')
+        assert hasattr(SegmentType, 'AUDIT')
+        assert hasattr(SegmentType, 'QUANTUM')
+        assert hasattr(SegmentType, 'CUSTOM')
+    
+    def test_segment_type_values(self):
+        """Test segment type values are single characters."""
+        for seg_type in SegmentType:
+            assert len(seg_type.value) == 1
+
+
+class TestSecurityScore:
+    """Test security score calculation."""
+    
+    def test_security_score_calculated(self):
+        """Test security score is calculated for generated keys."""
+        generator = DNAKeyGenerator(SecurityLevel.STANDARD)
+        key = generator.generate("user@example.com")
+        
+        assert key.security_score > 0
+        assert key.security_score <= 100
+    
+    def test_higher_security_level_higher_score(self):
+        """Test that higher security levels produce higher scores."""
+        gen_standard = DNAKeyGenerator(SecurityLevel.STANDARD)
+        gen_enhanced = DNAKeyGenerator(SecurityLevel.ENHANCED)
+        
+        key_standard = gen_standard.generate("user@example.com")
+        key_enhanced = gen_enhanced.generate("user@example.com")
+        
+        # Enhanced should have higher or equal score
+        assert key_enhanced.security_score >= key_standard.security_score
+
+
+class TestTotalLines:
+    """Test total lines calculation."""
+    
+    def test_total_lines_calculated(self):
+        """Test total lines is calculated for generated keys."""
+        generator = DNAKeyGenerator(SecurityLevel.STANDARD)
+        key = generator.generate("user@example.com")
+        
+        assert key.total_lines > 0
+    
+    def test_total_lines_increases_with_security_level(self):
+        """Test total lines increases with security level."""
+        gen_standard = DNAKeyGenerator(SecurityLevel.STANDARD)
+        gen_enhanced = DNAKeyGenerator(SecurityLevel.ENHANCED)
+        
+        key_standard = gen_standard.generate("user@example.com")
+        key_enhanced = gen_enhanced.generate("user@example.com")
+        
+        assert key_enhanced.total_lines > key_standard.total_lines
