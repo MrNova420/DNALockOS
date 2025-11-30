@@ -99,6 +99,7 @@ class EnrollmentResponse(BaseModel):
     created_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     serialized_key: Optional[str] = None
+    signing_key: Optional[str] = None  # IMPORTANT: User's private key - store securely!
     visual_seed: Optional[str] = None
     error_message: Optional[str] = None
 
@@ -225,6 +226,7 @@ async def enroll_key(request: EnrollmentRequest):
         created_at=response.dna_key.created_timestamp,
         expires_at=response.dna_key.expires_timestamp,
         serialized_key=base64.b64encode(response.serialized_key).decode("utf-8"),
+        signing_key=response.signing_key_hex,  # User needs this to sign challenges!
         visual_seed=response.dna_key.visual_dna.animation_seed if response.dna_key.visual_dna else None,
     )
 

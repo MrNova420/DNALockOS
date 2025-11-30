@@ -94,6 +94,7 @@ class EnrollmentResponse:
     dna_key: Optional[DNAKey] = None
     key_id: Optional[str] = None
     serialized_key: Optional[bytes] = None
+    signing_key_hex: Optional[str] = None  # User's private key for signing challenges
     error_message: Optional[str] = None
     timestamp: Optional[datetime] = None
 
@@ -146,9 +147,9 @@ class EnrollmentService:
             # Validate request
             self._validate_request(request)
 
-            # Generate DNA key
+            # Generate DNA key WITH signing key (for user authentication)
             generator = DNAKeyGenerator(request.security_level)
-            dna_key = generator.generate(
+            key_with_signing = generator.generate_with_signing_key(
                 subject_id=request.subject_id,
                 subject_type=request.subject_type,
                 policy_id=request.policy_id,
@@ -158,6 +159,8 @@ class EnrollmentService:
                 biometric_required=request.biometric_required,
                 device_binding_required=request.device_binding_required,
             )
+            
+            dna_key = key_with_signing.dna_key
 
             # Validate generated key
             if not dna_key.is_valid():
@@ -166,12 +169,13 @@ class EnrollmentService:
             # Serialize key
             serialized = serialize_dna_key(dna_key)
 
-            # Create successful response
+            # Create successful response with signing key
             return EnrollmentResponse(
                 success=True,
                 dna_key=dna_key,
                 key_id=dna_key.key_id,
                 serialized_key=serialized,
+                signing_key_hex=key_with_signing.signing_key_hex,  # User needs this to authenticate!
                 timestamp=datetime.now(timezone.utc),
             )
 
