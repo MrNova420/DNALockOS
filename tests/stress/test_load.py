@@ -1,11 +1,59 @@
 """
-DNALockOS Stress Tests
+==============================================================================
+DNALockOS - DNA-Key Authentication System
+Copyright (c) 2025 WeNova Interactive
+==============================================================================
 
-Load and concurrency tests for the authentication system.
+OWNERSHIP AND LEGAL NOTICE:
+
+This software and all associated intellectual property is the exclusive
+property of WeNova Interactive, legally owned and operated by:
+
+    Kayden Shawn Massengill
+
+COMMERCIAL SOFTWARE - NOT FREE - NOT OPEN SOURCE
+
+This is proprietary commercial software. It is NOT free software. It is NOT
+open source software. This software is developed for commercial sale and
+requires a valid commercial license for ANY use.
+
+STRICT PROHIBITION NOTICE:
+
+Without a valid commercial license agreement, you are PROHIBITED from:
+  * Using this software for any purpose
+  * Copying, reproducing, or duplicating this software
+  * Modifying, adapting, or creating derivative works
+  * Distributing, publishing, or transferring this software
+  * Reverse engineering, decompiling, or disassembling this software
+  * Sublicensing or permitting any third-party access
+
+LEGAL ENFORCEMENT:
+
+Unauthorized use, reproduction, or distribution of this software, or any
+portion thereof, may result in severe civil and criminal penalties, and
+will be prosecuted to the maximum extent possible under applicable law.
+
+For licensing inquiries: WeNova Interactive
+==============================================================================
+"""
+
+"""
+DNALockOS - DNA-Key Authentication System
+Copyright (c) 2025 WeNova Interactive
+Legal Owner: Kayden Shawn Massengill
+ALL RIGHTS RESERVED.
+
+PROPRIETARY AND CONFIDENTIAL - COMMERCIAL SOFTWARE
+This software is NOT free and is NOT open source.
+Unauthorized copying, modification, distribution, or use is strictly prohibited.
+See LICENSE file for terms.
+
+Stress Tests - Load and concurrency tests for the authentication system.
 Military-grade stress testing with full authentication flows.
 """
 
 import asyncio
+import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -311,7 +359,6 @@ class TestMixedWorkloadStress:
                     enroll_metrics.add_request(time.time() - req_start, False)
             else:
                 # Full authentication with random enrolled key
-                import random
                 test_key = random.choice(enrolled_keys)
                 
                 req_start = time.time()

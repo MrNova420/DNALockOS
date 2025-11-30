@@ -1,3 +1,13 @@
+<!--
+DNALockOS - DNA-Key Authentication System
+Copyright (c) 2025 WeNova Interactive
+Legal Owner: Kayden Shawn Massengill (Operating as WeNova Interactive)
+
+PROPRIETARY AND CONFIDENTIAL - COMMERCIAL SOFTWARE
+This is NOT free software. This is NOT open source. Commercial license required.
+Unauthorized use is strictly prohibited.
+-->
+
 # DNA-Key Authentication System - Web Application
 
 ## 🔷 Tron-Inspired Futuristic Interface 🔷

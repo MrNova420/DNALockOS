@@ -1,3 +1,14 @@
+/**
+ * DNALockOS - DNA-Key Authentication System
+ * Copyright (c) 2025 WeNova Interactive
+ * Legal Owner: Kayden Shawn Massengill
+ * ALL RIGHTS RESERVED.
+ *
+ * PROPRIETARY AND CONFIDENTIAL
+ * This is commercial software. Unauthorized copying, modification,
+ * distribution, or use is strictly prohibited.
+ */
+
 // Next.js configuration
 module.exports = {
   reactStrictMode: true,
