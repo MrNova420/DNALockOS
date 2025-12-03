@@ -114,8 +114,9 @@ class X25519PrivateKey:
             ValueError: If seed is provided but not exactly 32 bytes.
             RuntimeError: If no backend is available.
         """
-        if seed is not None and len(seed) != 32:
-            raise ValueError("Seed must be exactly 32 bytes")
+        if seed is not None:
+            if len(seed) != 32:
+                raise ValueError("Seed must be exactly 32 bytes")
         
         self._use_nacl = _check_nacl()
         
@@ -133,7 +134,7 @@ class X25519PrivateKey:
                 self._private_key = x25519.X25519PrivateKey.generate()
             warnings.warn(
                 "PyNaCl not available, using cryptography library for X25519. "
-                "For optimal performance, install PyNaCl: pip install PyNaCl",
+                "For optimal security and performance, install PyNaCl: pip install PyNaCl",
                 UserWarning,
                 stacklevel=2,
             )

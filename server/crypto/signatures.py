@@ -92,8 +92,9 @@ class Ed25519SigningKey:
             ValueError: If seed is provided but not exactly 32 bytes.
             RuntimeError: If no signing backend is available.
         """
-        if seed is not None and len(seed) != 32:
-            raise ValueError("Seed must be exactly 32 bytes")
+        if seed is not None:
+            if len(seed) != 32:
+                raise ValueError("Seed must be exactly 32 bytes")
         
         if BACKEND_AVAILABLE:
             self._backend = get_signer_backend(seed)
@@ -187,8 +188,10 @@ class Ed25519VerifyKey:
         
         self._key_bytes = key_bytes
         
-        # Create a temporary signer to get access to verification
-        # This is a workaround since we need a way to verify with just a public key
+        # We need backend-specific public key objects for verification.
+        # The backend abstraction in backend.py is designed for private keys,
+        # so we instantiate public key objects directly here for verification.
+        # Future improvement: Could create a VerifierBackend abstraction similar to SignerBackend.
         if BACKEND_AVAILABLE:
             # Store the backend type for verification
             try:

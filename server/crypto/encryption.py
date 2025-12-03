@@ -131,7 +131,7 @@ class AES256GCM:
             self._cipher = AESGCM(key)
             warnings.warn(
                 "PyNaCl not available, using cryptography library for AES-256-GCM. "
-                "For optimal performance, install PyNaCl: pip install PyNaCl",
+                "For optimal security and performance, install PyNaCl: pip install PyNaCl",
                 UserWarning,
                 stacklevel=2,
             )
@@ -232,6 +232,11 @@ class AES256GCM:
             
             if aad is not None:
                 raise NotImplementedError("AAD support requires AES-GCM backend")
+            
+            # Validate minimum ciphertext length (must include authentication tag)
+            # XSalsa20-Poly1305 has a 16-byte tag
+            if len(ciphertext) < 16:
+                raise ValueError("Ciphertext too short - must include authentication tag")
 
             try:
                 # Reconstruct the format that decrypt() expects (nonce + ciphertext)
