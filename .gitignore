@@ -113,6 +113,7 @@ docker-compose.override.yml
 # Logs
 logs/
 *.log
+web-frontend.log
 
 # HSM and crypto materials (never commit!)
 hsm/
