@@ -610,9 +610,10 @@ class DNAKeyWithSigningKey:
         Returns:
             The signature as a hex string
         """
-        from nacl.signing import SigningKey
+        from .backend import get_signer_backend
         
-        signing_key = SigningKey(bytes.fromhex(self.signing_key_hex))
+        signing_key_bytes = bytes.fromhex(self.signing_key_hex)
+        signer = get_signer_backend(signing_key_bytes)
         challenge_bytes = bytes.fromhex(challenge_hex)
-        signature = signing_key.sign(challenge_bytes).signature
+        signature = signer.sign(challenge_bytes)
         return signature.hex()

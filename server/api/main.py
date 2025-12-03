@@ -294,6 +294,25 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ============= Public Endpoints =============
 
 
+@app.get("/")
+async def root():
+    """Root endpoint - API welcome message."""
+    return {
+        "message": "🔷 DNALockOS - DNA-Key Authentication System API 🔷",
+        "version": "1.0.0",
+        "docs": "/api/docs",
+        "health": "/health",
+        "status": "/api/v1/status",
+    }
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Favicon endpoint to prevent 404 errors."""
+    from fastapi.responses import Response
+    return Response(status_code=204)
+
+
 @app.get("/health")
 async def health_check():
     """System health check with detailed status."""
