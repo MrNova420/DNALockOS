@@ -202,24 +202,32 @@ fi
 # Get host and port from environment or defaults
 HOST="${DNAKEY_API_HOST:-0.0.0.0}"
 PORT="${DNAKEY_API_PORT:-8000}"
+WEB_PORT="${DNAKEY_WEB_PORT:-3000}"
 
-# Kill any existing process on the port (with error handling)
-if command -v lsof &> /dev/null; then
-    PID=$(lsof -ti:$PORT 2>/dev/null || true)
-    if [ -n "$PID" ]; then
-        print_warning "Port $PORT is in use. Stopping existing process..."
-        kill -TERM $PID 2>/dev/null || true
-        sleep 2
-        # If still running, force kill
-        if kill -0 $PID 2>/dev/null; then
-            kill -9 $PID 2>/dev/null || true
+# Function to kill process on port
+kill_port() {
+    local port=$1
+    if command -v lsof &> /dev/null; then
+        PID=$(lsof -ti:$port 2>/dev/null || true)
+        if [ -n "$PID" ]; then
+            print_warning "Port $port is in use. Stopping existing process..."
+            kill -TERM $PID 2>/dev/null || true
+            sleep 2
+            # If still running, force kill
+            if kill -0 $PID 2>/dev/null; then
+                kill -9 $PID 2>/dev/null || true
+            fi
+            sleep 1
         fi
+    elif command -v fuser &> /dev/null; then
+        fuser -k $port/tcp 2>/dev/null || true
         sleep 1
     fi
-elif command -v fuser &> /dev/null; then
-    fuser -k $PORT/tcp 2>/dev/null || true
-    sleep 1
-fi
+}
+
+# Kill any existing processes on the ports
+kill_port $PORT
+kill_port $WEB_PORT
 
 # Start the API server
 print_info "Starting API server on http://$HOST:$PORT"
@@ -271,6 +279,54 @@ else
     print_warning "Health endpoint not responding yet (server may still be starting)"
 fi
 
+# Start Web Frontend (unless disabled or on mobile)
+WEB_PID=""
+if [ "$IS_MOBILE" = false ] && [ "${DNAKEY_WEB_ENABLED:-true}" = "true" ]; then
+    # Check if Node.js is available
+    if command -v node &> /dev/null && command -v npm &> /dev/null; then
+        print_info "Starting web frontend on http://localhost:$WEB_PORT"
+        
+        # Install dependencies if needed
+        if [ ! -d "web/frontend/node_modules" ]; then
+            print_info "Installing web frontend dependencies..."
+            cd web/frontend
+            npm install --silent > /dev/null 2>&1 || print_warning "Some npm packages failed to install"
+            cd "$SCRIPT_DIR"
+            print_status "Web dependencies installed"
+        fi
+        
+        # Set API URL environment variable
+        export NEXT_PUBLIC_API_URL="http://localhost:$PORT"
+        
+        # Start Next.js dev server
+        cd web/frontend
+        npm run dev > "$SCRIPT_DIR/web-frontend.log" 2>&1 &
+        WEB_PID=$!
+        cd "$SCRIPT_DIR"
+        
+        # Wait for web server to start
+        print_info "Waiting for web frontend to start..."
+        for i in {1..15}; do
+            sleep 1
+            if curl -s "http://localhost:$WEB_PORT" > /dev/null 2>&1; then
+                break
+            fi
+            if [ $i -eq 15 ]; then
+                print_warning "Web frontend may still be starting... Check web-frontend.log for details"
+            fi
+        done
+        
+        if [ -n "$WEB_PID" ] && kill -0 $WEB_PID 2>/dev/null; then
+            print_status "Web frontend started successfully (PID: $WEB_PID)"
+        else
+            print_warning "Web frontend may have failed to start. Check web-frontend.log"
+        fi
+    else
+        print_warning "Node.js/npm not found. Web frontend will not start."
+        print_info "Install Node.js to enable the web interface."
+    fi
+fi
+
 echo ""
 echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║                   DNALockOS is running!                                ║${NC}"
@@ -280,11 +336,19 @@ echo -e "  ${CYAN}API Server:${NC}  http://localhost:$PORT"
 echo -e "  ${CYAN}API Docs:${NC}    http://localhost:$PORT/api/docs"
 echo -e "  ${CYAN}Health:${NC}      http://localhost:$PORT/health"
 echo -e "  ${CYAN}Status:${NC}      http://localhost:$PORT/api/v1/status"
+
+if [ -n "$WEB_PID" ] && kill -0 $WEB_PID 2>/dev/null; then
+    echo ""
+    echo -e "  ${CYAN}Web App:${NC}     http://localhost:$WEB_PORT"
+    echo -e "  ${CYAN}Dashboard:${NC}   http://localhost:$WEB_PORT/dashboard"
+    echo -e "  ${CYAN}Admin:${NC}       http://localhost:$WEB_PORT/admin"
+fi
+
 echo ""
 
 if [ "$IS_MOBILE" = true ]; then
     echo -e "  ${YELLOW}Running in mobile/Termux mode${NC}"
-    echo -e "  ${YELLOW}Some features may be limited${NC}"
+    echo -e "  ${YELLOW}Web frontend disabled on mobile${NC}"
     echo ""
 fi
 
@@ -292,5 +356,9 @@ echo -e "  ${YELLOW}Press Ctrl+C to stop all services${NC}"
 echo ""
 
 # Wait for interrupt
-trap "echo ''; print_info 'Shutting down...'; kill $API_PID 2>/dev/null; print_status 'DNALockOS stopped'; exit 0" INT TERM
+if [ -n "$WEB_PID" ]; then
+    trap "echo ''; print_info 'Shutting down...'; kill $API_PID 2>/dev/null; kill $WEB_PID 2>/dev/null; print_status 'DNALockOS stopped'; exit 0" INT TERM
+else
+    trap "echo ''; print_info 'Shutting down...'; kill $API_PID 2>/dev/null; print_status 'DNALockOS stopped'; exit 0" INT TERM
+fi
 wait

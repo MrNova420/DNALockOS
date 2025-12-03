@@ -51,16 +51,9 @@ import React, { useRef, useState, useEffect, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { 
   OrbitControls, 
-  PerspectiveCamera, 
-  Environment,
+  PerspectiveCamera,
   Sparkles,
-  Trail,
-  Float,
-  GradientTexture,
-  MeshDistortMaterial,
-  Bloom,
-  EffectComposer,
-  ChromaticAberration
+  Float
 } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -356,18 +349,10 @@ const FullDNAViewer = ({ keyId, visualConfig, onSegmentClick }) => {
             </>
           )}
 
-          {/* Environment */}
-          <Environment preset="night" />
-
-          {/* Post-processing effects */}
-          <EffectComposer>
-            <Bloom 
-              intensity={1.5} 
-              luminanceThreshold={0.2} 
-              luminanceSmoothing={0.9}
-            />
-            <ChromaticAberration offset={[0.001, 0.001]} />
-          </EffectComposer>
+          {/* Environment - disabled for compatibility (requires external HDR files) */}
+          
+          {/* Post-processing effects - disabled for compatibility */}
+          {/* Note: Bloom and other effects require @react-three/postprocessing package */}
         </Canvas>
 
         {/* Overlay instructions */}
