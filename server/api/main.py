@@ -306,10 +306,11 @@ async def root():
     }
 
 
-@app.get("/favicon.ico")
+@app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     """Favicon endpoint to prevent 404 errors."""
-    return JSONResponse(status_code=204, content=None)
+    from fastapi.responses import Response
+    return Response(status_code=204)
 
 
 @app.get("/health")
