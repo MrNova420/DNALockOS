@@ -51,7 +51,9 @@ distribution, or use is strictly prohibited.
 """
 DNA-Key Authentication System - Ed25519 Digital Signatures
 
-Implements Ed25519 signing and verification using PyNaCl (libsodium).
+Implements Ed25519 signing and verification using PyNaCl (libsodium) with
+fallback to cryptography library when PyNaCl is unavailable.
+
 Ed25519 provides:
 - 256-bit security level
 - Fast signing and verification
@@ -63,16 +65,19 @@ Reference: RFC 8032 - Edwards-Curve Digital Signature Algorithm (EdDSA)
 
 from typing import Optional, Tuple
 
-import nacl.encoding
-import nacl.exceptions
-import nacl.signing
+# Import backend abstraction
+try:
+    from .backend import get_signer_backend
+    BACKEND_AVAILABLE = True
+except ImportError:
+    BACKEND_AVAILABLE = False
 
 
 class Ed25519SigningKey:
     """
     Ed25519 private key for signing operations.
 
-    Wraps PyNaCl's SigningKey with additional validation and helpers.
+    Uses backend abstraction to support both PyNaCl and cryptography library.
     """
 
     def __init__(self, seed: Optional[bytes] = None):
@@ -85,13 +90,19 @@ class Ed25519SigningKey:
 
         Raises:
             ValueError: If seed is provided but not exactly 32 bytes.
+            RuntimeError: If no signing backend is available.
         """
-        if seed is not None:
-            if len(seed) != 32:
-                raise ValueError("Seed must be exactly 32 bytes")
-            self._signing_key = nacl.signing.SigningKey(seed)
+        if seed is not None and len(seed) != 32:
+            raise ValueError("Seed must be exactly 32 bytes")
+        
+        if BACKEND_AVAILABLE:
+            self._backend = get_signer_backend(seed)
         else:
-            self._signing_key = nacl.signing.SigningKey.generate()
+            raise RuntimeError(
+                "No signing backend available. "
+                "Install PyNaCl (pip install PyNaCl) or "
+                "cryptography (pip install cryptography)."
+            )
 
     def sign(self, message: bytes) -> bytes:
         """
@@ -109,8 +120,7 @@ class Ed25519SigningKey:
         if not isinstance(message, bytes):
             raise TypeError("Message must be bytes")
 
-        signed = self._signing_key.sign(message)
-        return signed.signature
+        return self._backend.sign(message)
 
     def to_bytes(self) -> bytes:
         """
@@ -123,7 +133,7 @@ class Ed25519SigningKey:
             Handle with care - this is the secret key material.
             Should be encrypted before storage.
         """
-        return bytes(self._signing_key)
+        return self._backend.to_bytes()
 
     def verify_key(self) -> "Ed25519VerifyKey":
         """
@@ -132,7 +142,8 @@ class Ed25519SigningKey:
         Returns:
             Ed25519VerifyKey object for signature verification
         """
-        return Ed25519VerifyKey(self._signing_key.verify_key)
+        public_key_bytes = self._backend.get_public_key()
+        return Ed25519VerifyKey(key_bytes=public_key_bytes)
 
     @classmethod
     def from_bytes(cls, key_bytes: bytes) -> "Ed25519SigningKey":
@@ -157,32 +168,43 @@ class Ed25519VerifyKey:
     """
     Ed25519 public key for signature verification.
 
-    Wraps PyNaCl's VerifyKey with additional validation and helpers.
+    Uses backend abstraction to support both PyNaCl and cryptography library.
     """
 
-    def __init__(
-        self, verify_key: Optional[nacl.signing.VerifyKey] = None, key_bytes: Optional[bytes] = None
-    ):
+    def __init__(self, key_bytes: bytes):
         """
         Initialize an Ed25519 verification key.
 
         Args:
-            verify_key: PyNaCl VerifyKey object
-            key_bytes: Optional 32-byte public key
+            key_bytes: 32-byte public key
 
         Raises:
-            ValueError: If neither or both parameters are provided
             ValueError: If key_bytes is not exactly 32 bytes
+            RuntimeError: If no signing backend is available
         """
-        if (verify_key is None) == (key_bytes is None):
-            raise ValueError("Must provide either verify_key or key_bytes, not both or neither")
-
-        if key_bytes is not None:
-            if len(key_bytes) != 32:
-                raise ValueError("Public key must be exactly 32 bytes")
-            self._verify_key = nacl.signing.VerifyKey(key_bytes)
+        if len(key_bytes) != 32:
+            raise ValueError("Public key must be exactly 32 bytes")
+        
+        self._key_bytes = key_bytes
+        
+        # Create a temporary signer to get access to verification
+        # This is a workaround since we need a way to verify with just a public key
+        if BACKEND_AVAILABLE:
+            # Store the backend type for verification
+            try:
+                import nacl.signing
+                self._verify_key = nacl.signing.VerifyKey(key_bytes)
+                self._use_nacl = True
+            except ImportError:
+                from cryptography.hazmat.primitives.asymmetric import ed25519
+                self._verify_key = ed25519.Ed25519PublicKey.from_public_bytes(key_bytes)
+                self._use_nacl = False
         else:
-            self._verify_key = verify_key
+            raise RuntimeError(
+                "No signing backend available. "
+                "Install PyNaCl (pip install PyNaCl) or "
+                "cryptography (pip install cryptography)."
+            )
 
     def verify(self, message: bytes, signature: bytes) -> bool:
         """
@@ -207,9 +229,14 @@ class Ed25519VerifyKey:
             raise ValueError("Signature must be exactly 64 bytes")
 
         try:
-            self._verify_key.verify(message, signature)
-            return True
-        except nacl.exceptions.BadSignatureError:
+            if self._use_nacl:
+                self._verify_key.verify(message, signature)
+                return True
+            else:
+                from cryptography.exceptions import InvalidSignature
+                self._verify_key.verify(signature, message)
+                return True
+        except Exception:
             return False
 
     def to_bytes(self) -> bytes:
@@ -219,7 +246,7 @@ class Ed25519VerifyKey:
         Returns:
             32-byte public key
         """
-        return bytes(self._verify_key)
+        return self._key_bytes
 
     @classmethod
     def from_bytes(cls, key_bytes: bytes) -> "Ed25519VerifyKey":

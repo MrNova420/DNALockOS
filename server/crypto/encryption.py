@@ -51,7 +51,9 @@ distribution, or use is strictly prohibited.
 """
 DNA-Key Authentication System - AES-256-GCM Encryption
 
-Implements AES-256-GCM authenticated encryption using PyNaCl (libsodium).
+Implements AES-256-GCM authenticated encryption using PyNaCl (libsodium) with
+fallback to cryptography library when PyNaCl is unavailable.
+
 AES-256-GCM provides:
 - 256-bit key strength
 - Authenticated encryption (confidentiality + integrity)
@@ -61,11 +63,37 @@ AES-256-GCM provides:
 Reference: NIST SP 800-38D - Galois/Counter Mode (GCM)
 """
 
+import os
+import warnings
 from typing import Optional, Tuple
 
-import nacl.exceptions
-import nacl.secret
-import nacl.utils
+# Check for available backends
+_NACL_AVAILABLE = None
+_CRYPTOGRAPHY_AVAILABLE = None
+
+
+def _check_nacl() -> bool:
+    """Check if PyNaCl is available."""
+    global _NACL_AVAILABLE
+    if _NACL_AVAILABLE is None:
+        try:
+            import nacl.secret  # noqa: F401
+            _NACL_AVAILABLE = True
+        except ImportError:
+            _NACL_AVAILABLE = False
+    return _NACL_AVAILABLE
+
+
+def _check_cryptography() -> bool:
+    """Check if cryptography library is available."""
+    global _CRYPTOGRAPHY_AVAILABLE
+    if _CRYPTOGRAPHY_AVAILABLE is None:
+        try:
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # noqa: F401
+            _CRYPTOGRAPHY_AVAILABLE = True
+        except ImportError:
+            _CRYPTOGRAPHY_AVAILABLE = False
+    return _CRYPTOGRAPHY_AVAILABLE
 
 
 class AES256GCM:
@@ -73,11 +101,9 @@ class AES256GCM:
     AES-256-GCM authenticated encryption cipher.
 
     Provides authenticated encryption with associated data (AEAD).
-    Uses libsodium's XSalsa20-Poly1305 which provides equivalent security
-    guarantees to AES-256-GCM.
-
-    Note: libsodium uses XSalsa20-Poly1305 by default for SecretBox,
-    which provides equivalent security properties to AES-256-GCM.
+    
+    Uses PyNaCl's XSalsa20-Poly1305 (equivalent security to AES-256-GCM) when available,
+    falls back to cryptography library's AES-256-GCM when PyNaCl is not available.
     """
 
     def __init__(self, key: bytes):
@@ -89,12 +115,32 @@ class AES256GCM:
 
         Raises:
             ValueError: If key is not exactly 32 bytes
+            RuntimeError: If no encryption backend is available
         """
         if len(key) != 32:
             raise ValueError("Key must be exactly 32 bytes")
 
-        self._box = nacl.secret.SecretBox(key)
         self._key = key
+        self._use_nacl = _check_nacl()
+        
+        if self._use_nacl:
+            import nacl.secret
+            self._box = nacl.secret.SecretBox(key)
+        elif _check_cryptography():
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+            self._cipher = AESGCM(key)
+            warnings.warn(
+                "PyNaCl not available, using cryptography library for AES-256-GCM. "
+                "For optimal performance, install PyNaCl: pip install PyNaCl",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            raise RuntimeError(
+                "No encryption backend available. "
+                "Install PyNaCl (pip install PyNaCl) or "
+                "cryptography (pip install cryptography)."
+            )
 
     def encrypt(
         self, plaintext: bytes, nonce: Optional[bytes] = None, aad: Optional[bytes] = None
@@ -104,8 +150,9 @@ class AES256GCM:
 
         Args:
             plaintext: Data to encrypt
-            nonce: Optional 24-byte nonce. If None, generates random nonce.
-            aad: Optional additional authenticated data (not yet supported in libsodium SecretBox)
+            nonce: Optional nonce. If None, generates random nonce.
+                   For PyNaCl: 24 bytes. For AES-GCM: 12 bytes.
+            aad: Optional additional authenticated data (supported in AES-GCM backend only)
 
         Returns:
             Tuple of (ciphertext, nonce)
@@ -113,7 +160,7 @@ class AES256GCM:
 
         Raises:
             TypeError: If plaintext is not bytes
-            ValueError: If nonce is provided but not 24 bytes
+            ValueError: If nonce is provided but wrong size
 
         Security:
             - Never reuse a nonce with the same key
@@ -123,23 +170,33 @@ class AES256GCM:
         if not isinstance(plaintext, bytes):
             raise TypeError("Plaintext must be bytes")
 
-        if nonce is not None:
-            if len(nonce) != 24:
-                raise ValueError("Nonce must be exactly 24 bytes")
+        if self._use_nacl:
+            import nacl.secret
+            import nacl.utils
+            
+            if nonce is not None:
+                if len(nonce) != 24:
+                    raise ValueError("Nonce must be exactly 24 bytes for PyNaCl backend")
+            else:
+                nonce = nacl.utils.random(nacl.secret.SecretBox.NONCE_SIZE)
+
+            if aad is not None:
+                raise NotImplementedError("AAD support requires AES-GCM backend")
+
+            ciphertext = self._box.encrypt(plaintext, nonce)
+            # Remove the nonce prefix that encrypt() adds
+            ciphertext_only = ciphertext[nacl.secret.SecretBox.NONCE_SIZE:]
+            return ciphertext_only, nonce
         else:
-            nonce = nacl.utils.random(nacl.secret.SecretBox.NONCE_SIZE)
-
-        if aad is not None:
-            # Note: libsodium's SecretBox doesn't support AAD directly
-            # For full AEAD support, we'd need to use crypto_aead_* functions
-            # For now, we'll note this limitation
-            raise NotImplementedError("AAD support requires direct crypto_aead API")
-
-        ciphertext = self._box.encrypt(plaintext, nonce)
-        # Remove the nonce prefix that encrypt() adds
-        ciphertext_only = ciphertext[nacl.secret.SecretBox.NONCE_SIZE:]
-
-        return ciphertext_only, nonce
+            # Using cryptography library's AES-GCM
+            if nonce is not None:
+                if len(nonce) != 12:
+                    raise ValueError("Nonce must be exactly 12 bytes for AES-GCM backend")
+            else:
+                nonce = os.urandom(12)  # AES-GCM standard nonce size
+            
+            ciphertext = self._cipher.encrypt(nonce, plaintext, aad)
+            return ciphertext, nonce
 
     def decrypt(self, ciphertext: bytes, nonce: bytes, aad: Optional[bytes] = None) -> bytes:
         """
@@ -147,15 +204,15 @@ class AES256GCM:
 
         Args:
             ciphertext: Encrypted data (includes authentication tag)
-            nonce: 24-byte nonce used during encryption
-            aad: Optional additional authenticated data (not yet supported)
+            nonce: Nonce used during encryption (24 bytes for PyNaCl, 12 bytes for AES-GCM)
+            aad: Optional additional authenticated data (supported in AES-GCM backend only)
 
         Returns:
             Decrypted plaintext
 
         Raises:
             TypeError: If ciphertext or nonce are not bytes
-            ValueError: If nonce is not 24 bytes
+            ValueError: If nonce is wrong size
             DecryptionError: If authentication fails or ciphertext is invalid
 
         Security:
@@ -166,19 +223,34 @@ class AES256GCM:
             raise TypeError("Ciphertext must be bytes")
         if not isinstance(nonce, bytes):
             raise TypeError("Nonce must be bytes")
-        if len(nonce) != 24:
-            raise ValueError("Nonce must be exactly 24 bytes")
 
-        if aad is not None:
-            raise NotImplementedError("AAD support requires direct crypto_aead API")
+        if self._use_nacl:
+            import nacl.exceptions
+            
+            if len(nonce) != 24:
+                raise ValueError("Nonce must be exactly 24 bytes for PyNaCl backend")
+            
+            if aad is not None:
+                raise NotImplementedError("AAD support requires AES-GCM backend")
 
-        try:
-            # Reconstruct the format that decrypt() expects (nonce + ciphertext)
-            combined = nonce + ciphertext
-            plaintext = self._box.decrypt(combined)
-            return plaintext
-        except nacl.exceptions.CryptoError as e:
-            raise DecryptionError("Decryption failed: authentication tag mismatch or invalid ciphertext") from e
+            try:
+                # Reconstruct the format that decrypt() expects (nonce + ciphertext)
+                combined = nonce + ciphertext
+                plaintext = self._box.decrypt(combined)
+                return plaintext
+            except nacl.exceptions.CryptoError as e:
+                raise DecryptionError("Decryption failed: authentication tag mismatch or invalid ciphertext") from e
+        else:
+            # Using cryptography library's AES-GCM
+            if len(nonce) != 12:
+                raise ValueError("Nonce must be exactly 12 bytes for AES-GCM backend")
+            
+            try:
+                from cryptography.exceptions import InvalidTag
+                plaintext = self._cipher.decrypt(nonce, ciphertext, aad)
+                return plaintext
+            except InvalidTag as e:
+                raise DecryptionError("Decryption failed: authentication tag mismatch or invalid ciphertext") from e
 
     @classmethod
     def generate_key(cls) -> bytes:
@@ -194,23 +266,32 @@ class AES256GCM:
             >>> key = AES256GCM.generate_key()
             >>> cipher = AES256GCM(key)
         """
-        return nacl.utils.random(32)
+        if _check_nacl():
+            import nacl.utils
+            return nacl.utils.random(32)
+        else:
+            return os.urandom(32)
 
     @staticmethod
     def generate_nonce() -> bytes:
         """
-        Generate a secure random 24-byte nonce.
+        Generate a secure random nonce.
 
         Uses CSPRNG for secure nonce generation.
+        Returns 24 bytes for PyNaCl backend, 12 bytes for AES-GCM backend.
 
         Returns:
-            24-byte nonce
+            Nonce bytes (size depends on backend)
 
         Example:
             >>> nonce = AES256GCM.generate_nonce()
             >>> ciphertext, _ = cipher.encrypt(plaintext, nonce=nonce)
         """
-        return nacl.utils.random(24)
+        if _check_nacl():
+            import nacl.utils
+            return nacl.utils.random(24)
+        else:
+            return os.urandom(12)  # AES-GCM standard nonce size
 
 
 class DecryptionError(Exception):

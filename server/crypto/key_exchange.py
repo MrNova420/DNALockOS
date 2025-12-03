@@ -51,7 +51,9 @@ distribution, or use is strictly prohibited.
 """
 DNA-Key Authentication System - X25519 Key Exchange
 
-Implements X25519 Elliptic Curve Diffie-Hellman (ECDH) key exchange using PyNaCl.
+Implements X25519 Elliptic Curve Diffie-Hellman (ECDH) key exchange using PyNaCl
+with fallback to cryptography library when PyNaCl is unavailable.
+
 X25519 provides:
 - 128-bit security level (256-bit keys)
 - Fast key exchange operations
@@ -61,18 +63,43 @@ X25519 provides:
 Reference: RFC 7748 - Elliptic Curves for Security
 """
 
+import warnings
 from typing import Optional, Tuple
 
-import nacl.encoding
-import nacl.exceptions
-import nacl.public
+# Check for available backends
+_NACL_AVAILABLE = None
+_CRYPTOGRAPHY_AVAILABLE = None
+
+
+def _check_nacl() -> bool:
+    """Check if PyNaCl is available."""
+    global _NACL_AVAILABLE
+    if _NACL_AVAILABLE is None:
+        try:
+            import nacl.public  # noqa: F401
+            _NACL_AVAILABLE = True
+        except ImportError:
+            _NACL_AVAILABLE = False
+    return _NACL_AVAILABLE
+
+
+def _check_cryptography() -> bool:
+    """Check if cryptography library is available."""
+    global _CRYPTOGRAPHY_AVAILABLE
+    if _CRYPTOGRAPHY_AVAILABLE is None:
+        try:
+            from cryptography.hazmat.primitives.asymmetric import x25519  # noqa: F401
+            _CRYPTOGRAPHY_AVAILABLE = True
+        except ImportError:
+            _CRYPTOGRAPHY_AVAILABLE = False
+    return _CRYPTOGRAPHY_AVAILABLE
 
 
 class X25519PrivateKey:
     """
     X25519 private key for key exchange operations.
 
-    Wraps PyNaCl's PrivateKey with additional validation and helpers.
+    Supports both PyNaCl and cryptography library backends.
     """
 
     def __init__(self, seed: Optional[bytes] = None):
@@ -85,13 +112,37 @@ class X25519PrivateKey:
 
         Raises:
             ValueError: If seed is provided but not exactly 32 bytes.
+            RuntimeError: If no backend is available.
         """
-        if seed is not None:
-            if len(seed) != 32:
-                raise ValueError("Seed must be exactly 32 bytes")
-            self._private_key = nacl.public.PrivateKey(seed)
+        if seed is not None and len(seed) != 32:
+            raise ValueError("Seed must be exactly 32 bytes")
+        
+        self._use_nacl = _check_nacl()
+        
+        if self._use_nacl:
+            import nacl.public
+            if seed is not None:
+                self._private_key = nacl.public.PrivateKey(seed)
+            else:
+                self._private_key = nacl.public.PrivateKey.generate()
+        elif _check_cryptography():
+            from cryptography.hazmat.primitives.asymmetric import x25519
+            if seed is not None:
+                self._private_key = x25519.X25519PrivateKey.from_private_bytes(seed)
+            else:
+                self._private_key = x25519.X25519PrivateKey.generate()
+            warnings.warn(
+                "PyNaCl not available, using cryptography library for X25519. "
+                "For optimal performance, install PyNaCl: pip install PyNaCl",
+                UserWarning,
+                stacklevel=2,
+            )
         else:
-            self._private_key = nacl.public.PrivateKey.generate()
+            raise RuntimeError(
+                "No key exchange backend available. "
+                "Install PyNaCl (pip install PyNaCl) or "
+                "cryptography (pip install cryptography)."
+            )
 
     def exchange(self, peer_public_key: "X25519PublicKey") -> bytes:
         """
@@ -116,9 +167,13 @@ class X25519PrivateKey:
         if not isinstance(peer_public_key, X25519PublicKey):
             raise TypeError("peer_public_key must be X25519PublicKey")
 
-        box = nacl.public.Box(self._private_key, peer_public_key._public_key)
-        # Use the shared key from the box (32 bytes)
-        return bytes(box.shared_key())
+        if self._use_nacl:
+            import nacl.public
+            box = nacl.public.Box(self._private_key, peer_public_key._public_key)
+            return bytes(box.shared_key())
+        else:
+            # Using cryptography library
+            return self._private_key.exchange(peer_public_key._public_key)
 
     def to_bytes(self) -> bytes:
         """
@@ -131,7 +186,17 @@ class X25519PrivateKey:
             Handle with care - this is the secret key material.
             Should be encrypted before storage.
         """
-        return bytes(self._private_key)
+        if self._use_nacl:
+            return bytes(self._private_key)
+        else:
+            from cryptography.hazmat.primitives.serialization import (
+                Encoding,
+                PrivateFormat,
+                NoEncryption,
+            )
+            return self._private_key.private_bytes(
+                Encoding.Raw, PrivateFormat.Raw, NoEncryption()
+            )
 
     def public_key(self) -> "X25519PublicKey":
         """
@@ -140,7 +205,10 @@ class X25519PrivateKey:
         Returns:
             X25519PublicKey object
         """
-        return X25519PublicKey(public_key=self._private_key.public_key)
+        if self._use_nacl:
+            return X25519PublicKey(public_key=self._private_key.public_key, use_nacl=True)
+        else:
+            return X25519PublicKey(public_key=self._private_key.public_key(), use_nacl=False)
 
     @classmethod
     def from_bytes(cls, key_bytes: bytes) -> "X25519PrivateKey":
@@ -165,28 +233,47 @@ class X25519PublicKey:
     """
     X25519 public key for key exchange operations.
 
-    Wraps PyNaCl's PublicKey with additional validation and helpers.
+    Supports both PyNaCl and cryptography library backends.
     """
 
-    def __init__(self, public_key: Optional[nacl.public.PublicKey] = None, key_bytes: Optional[bytes] = None):
+    def __init__(self, public_key=None, key_bytes: Optional[bytes] = None, use_nacl: Optional[bool] = None):
         """
         Initialize an X25519 public key.
 
         Args:
-            public_key: PyNaCl PublicKey object
+            public_key: Backend-specific PublicKey object
             key_bytes: Optional 32-byte public key
+            use_nacl: Optional flag indicating which backend to use
 
         Raises:
-            ValueError: If neither or both parameters are provided
+            ValueError: If neither or both public_key and key_bytes are provided
             ValueError: If key_bytes is not exactly 32 bytes
+            RuntimeError: If no backend is available
         """
         if (public_key is None) == (key_bytes is None):
             raise ValueError("Must provide either public_key or key_bytes, not both or neither")
 
+        if use_nacl is None:
+            use_nacl = _check_nacl()
+        
+        self._use_nacl = use_nacl
+
         if key_bytes is not None:
             if len(key_bytes) != 32:
                 raise ValueError("Public key must be exactly 32 bytes")
-            self._public_key = nacl.public.PublicKey(key_bytes)
+            
+            if self._use_nacl:
+                import nacl.public
+                self._public_key = nacl.public.PublicKey(key_bytes)
+            elif _check_cryptography():
+                from cryptography.hazmat.primitives.asymmetric import x25519
+                self._public_key = x25519.X25519PublicKey.from_public_bytes(key_bytes)
+            else:
+                raise RuntimeError(
+                    "No key exchange backend available. "
+                    "Install PyNaCl (pip install PyNaCl) or "
+                    "cryptography (pip install cryptography)."
+                )
         else:
             self._public_key = public_key
 
@@ -197,7 +284,14 @@ class X25519PublicKey:
         Returns:
             32-byte public key
         """
-        return bytes(self._public_key)
+        if self._use_nacl:
+            return bytes(self._public_key)
+        else:
+            from cryptography.hazmat.primitives.serialization import (
+                Encoding,
+                PublicFormat,
+            )
+            return self._public_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
 
     @classmethod
     def from_bytes(cls, key_bytes: bytes) -> "X25519PublicKey":
